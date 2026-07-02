@@ -1,0 +1,55 @@
+format = "$username$hostname$directory$git_branch$git_status$python$nodejs$cmd_duration\n$character"
+add_newline = false
+
+[username]
+show_always = true
+style_user = "bold green"
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = false
+style = "bold green"
+format = "[@$hostname]($style) "
+
+[directory]
+style = "bold blue"
+truncation_length = 3
+truncate_to_repo = false
+read_only = ""
+format = "[$path]($style) "
+
+[git_branch]
+style = "purple"
+format = "[$branch]($style) "
+
+[git_status]
+style = "red"
+format = "[$all_status$ahead_behind]($style) "
+conflicted = "conflict "
+ahead = "ahead "
+behind = "behind "
+diverged = "diverged "
+up_to_date = ""
+untracked = "? "
+stashed = "stash "
+modified = "! "
+staged = "+ "
+renamed = "rename "
+deleted = "delete "
+
+[python]
+style = "yellow"
+format = "[py $version]($style) "
+
+[nodejs]
+style = "green"
+format = "[node $version]($style) "
+
+[cmd_duration]
+min_time = 2000
+style = "dimmed white"
+format = "[$duration]($style) "
+
+[character]
+success_symbol = "[>](bold green)"
+error_symbol = "[>](bold red)"

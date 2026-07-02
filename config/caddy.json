@@ -1,0 +1,92 @@
+{
+	"admin": {
+		"disabled": true
+	},
+	"apps": {
+		"http": {
+			"servers": {
+				"workspace": {
+					"listen": [":8080"],
+					"routes": [
+						{
+							"match": [{"path": ["/health", "/health/*"]}],
+							"handle": [{
+								"handler": "reverse_proxy",
+								"upstreams": [{"dial": "127.0.0.1:8082"}]
+							}]
+						},
+						{
+							"match": [{"path": ["/ready"]}],
+							"handle": [{
+								"handler": "reverse_proxy",
+								"upstreams": [{"dial": "127.0.0.1:8082"}]
+							}]
+						},
+						{
+							"match": [{"path": ["/status", "/status/*"]}],
+							"handle": [{
+								"handler": "reverse_proxy",
+								"upstreams": [{"dial": "127.0.0.1:8082"}]
+							}]
+						},
+						{
+							"match": [{"path": ["/lab", "/lab/*"]}],
+							"handle": [{
+								"handler": "reverse_proxy",
+								"upstreams": [{"dial": "127.0.0.1:8888"}],
+								"flush_interval": -1,
+								"transport": {
+									"protocol": "http",
+									"read_timeout": "86400s"
+								}
+							}]
+						},
+						{
+							"match": [{"path": ["/code"]}],
+							"handle": [{
+								"handler": "static_response",
+								"status_code": 302,
+								"headers": {
+									"Location": ["/code/"]
+								}
+							}]
+						},
+						{
+							"match": [{"path": ["/code/*"]}],
+							"handle": [
+								{
+									"handler": "rewrite",
+									"strip_path_prefix": "/code"
+								},
+								{
+									"handler": "reverse_proxy",
+									"upstreams": [{"dial": "127.0.0.1:8081"}],
+									"flush_interval": -1,
+									"transport": {
+										"protocol": "http",
+										"read_timeout": "86400s"
+									}
+								}
+							]
+						},
+						{
+							"match": [{"path": ["/"]}],
+							"handle": [{
+								"handler": "file_server",
+								"root": "/srv"
+							}]
+						},
+						{
+							"handle": [{
+								"handler": "static_response",
+								"status_code": 404,
+								"headers": {"Content-Type": ["text/plain"]},
+								"body": "not found"
+							}]
+						}
+					]
+				}
+			}
+		}
+	}
+}

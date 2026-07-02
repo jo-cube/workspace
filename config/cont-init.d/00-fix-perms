@@ -1,0 +1,4 @@
+#!/bin/sh
+mkdir -p /home/dev/.local/share /home/dev/.local/state /home/dev/.cache /home/dev/.config /cache/uv /cache/go /cache/gradle
+chown -R dev:dev /home/dev/.local /home/dev/.cache /home/dev/.config /cache/uv /cache/go /cache/gradle
+chown dev:dev /home/dev /cache

@@ -1,0 +1,25 @@
+# compose.yaml
+#
+# Use 'just start [flavor]' to run, building only if needed.
+# Or: docker buildx bake <flavor> && FLAVOR=<flavor> docker compose up -d --no-build
+
+services:
+  workspace:
+    image: ${REGISTRY:-ghcr.io/jcube}/workspace:${FLAVOR:-code}
+    ports:
+      - "${WORKSPACE_PORT:-8080}:8080"
+    volumes:
+      - ./workspace:/workspace
+      - home:/home/dev
+      - cache:/cache
+    environment:
+      - ENABLE_CADDY=true
+      - WORKSPACE_CONFIG_FILE
+      - PASSWORD
+      - HASHED_PASSWORD
+      - JUPYTER_TOKEN
+    hostname: workspace
+
+volumes:
+  home:
+  cache:

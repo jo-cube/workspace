@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ "${ENABLE_CADDY}" != "true" ]; then
+  exec sleep infinity
+fi
+
+exec caddy run --config /etc/caddy/caddy.json
