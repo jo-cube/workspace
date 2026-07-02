@@ -5,7 +5,7 @@
 
 services:
   workspace:
-    image: ${REGISTRY:-ghcr.io/jcube}/workspace:${FLAVOR:-code}
+    image: ${REGISTRY:-ghcr.io/jo-cube}/workspace:${FLAVOR:-code}
     ports:
       - "${WORKSPACE_PORT:-8080}:8080"
     volumes:

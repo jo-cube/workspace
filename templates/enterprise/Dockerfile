@@ -2,7 +2,7 @@
 # Enterprise workspace overlay
 # Builds FROM the generic workspace image and adds enterprise-specific config.
 
-ARG BASE_IMAGE=ghcr.io/jcube/workspace:polyglot
+ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:polyglot
 FROM ${BASE_IMAGE}
 
 # Enterprise CA certificates

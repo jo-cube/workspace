@@ -1,0 +1,90 @@
+name: Patch Images
+
+on:
+  push:
+    branches:
+      - 'patch/**'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: patch-images-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/workspace
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute patch tag
+        id: meta
+        run: |
+          set -euo pipefail
+          branch="${GITHUB_REF_NAME#patch/}"
+          slug="$(printf '%s' "$branch" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
+          if [ -z "$slug" ]; then
+            slug="patch"
+          fi
+          short_sha="$(git rev-parse --short=12 HEAD)"
+          {
+            echo "slug=$slug"
+            echo "short_sha=$short_sha"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write bake tag override
+        run: |
+          set -euo pipefail
+          slug="${{ steps.meta.outputs.slug }}"
+          short_sha="${{ steps.meta.outputs.short_sha }}"
+
+          tags_for() {
+            flavor="$1"
+            printf '"%s:%s-patch-%s", "%s:%s-patch-%s-%s"' \
+              "$IMAGE" "$flavor" "$slug" \
+              "$IMAGE" "$flavor" "$slug" "$short_sha"
+          }
+
+          {
+            echo 'target "code" {'
+            echo "  tags = [$(tags_for code)]"
+            echo "  platforms = [\"linux/amd64\", \"linux/arm64\"]"
+            echo "}"
+            echo 'target "platform" {'
+            echo "  tags = [$(tags_for platform)]"
+            echo "  platforms = [\"linux/amd64\", \"linux/arm64\"]"
+            echo "}"
+            echo 'target "full" {'
+            echo "  tags = [$(tags_for full)]"
+            echo "  platforms = [\"linux/amd64\", \"linux/arm64\"]"
+            echo "}"
+          } > /tmp/patch-tags.hcl
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish patch images
+        env:
+          CI: "true"
+          REGISTRY: ghcr.io/${{ github.repository_owner }}
+          CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+          CACHE_IMAGE: workspace-cache
+        run: docker buildx bake -f docker-bake.hcl -f /tmp/patch-tags.hcl code platform full --push

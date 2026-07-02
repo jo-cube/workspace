@@ -2,7 +2,7 @@
 # full.Dockerfile — platform + lab + debug + security tools
 # All binary downloads are multi-arch (amd64/arm64).
 
-ARG BASE_IMAGE=ghcr.io/jcube/workspace:platform
+ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:platform
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH

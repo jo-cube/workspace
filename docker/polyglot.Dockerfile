@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-ARG BASE_IMAGE=ghcr.io/jcube/workspace:code
+ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:code
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH

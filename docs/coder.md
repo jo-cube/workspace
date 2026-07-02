@@ -26,7 +26,7 @@ terraform {
 data "coder_workspace" "me" {}
 
 resource "docker_image" "workspace" {
-  name = "ghcr.io/jcube/workspace:platform"
+  name = "ghcr.io/jo-cube/workspace:platform"
 }
 
 resource "docker_container" "workspace" {
@@ -107,7 +107,7 @@ Choose the image flavor per workspace:
 
 ```hcl
 resource "docker_image" "workspace" {
-  name = "ghcr.io/jcube/workspace:full"
+  name = "ghcr.io/jo-cube/workspace:full"
 }
 ```
 

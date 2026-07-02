@@ -5,7 +5,7 @@
 The enterprise overlay does not build from scratch. It layers enterprise-specific configuration on top of a generic workspace image:
 
 ```
-ghcr.io/jcube/workspace:polyglot   (generic base)
+ghcr.io/jo-cube/workspace:polyglot   (generic base)
 └── enterprise overlay
     ├── CA certificates
     ├── proxy configuration
@@ -51,7 +51,7 @@ steps:
     run: |
       install -m 0644 "$CI_TRUST_BUNDLE" config/ca-certificates/root-ca.crt
       REGISTRY=registry.internal.example.com/workspace \
-        BASE_IMAGE=ghcr.io/jcube/workspace:platform \
+        BASE_IMAGE=ghcr.io/jo-cube/workspace:platform \
         ENABLE_HOMEBREW=true \
         docker buildx bake enterprise --push
 ```

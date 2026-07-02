@@ -15,7 +15,7 @@ just shell
 just up
 
 # Build with a different base
-BASE_IMAGE=ghcr.io/jcube/workspace:full just build
+BASE_IMAGE=ghcr.io/jo-cube/workspace:full just build
 ```
 
 ## What this adds

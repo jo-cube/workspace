@@ -10,6 +10,9 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /workspace-status .
 
 FROM ${BASE_IMAGE}
 
+LABEL org.opencontainers.image.source="https://github.com/jo-cube/workspace" \
+      org.opencontainers.image.description="Containerized development workspace images"
+
 ENV STARSHIP_CONFIG=/etc/starship.toml \
     PYTHONDONTWRITEBYTECODE=1
 

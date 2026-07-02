@@ -1,6 +1,6 @@
 # templates/enterprise/justfile
 
-base_image := env("BASE_IMAGE", "ghcr.io/jcube/workspace:polyglot")
+base_image := env("BASE_IMAGE", "ghcr.io/jo-cube/workspace:polyglot")
 registry := env("REGISTRY", "registry.internal.example.com/workspace")
 tag := env("TAG", "latest")
 homebrew := env("ENABLE_HOMEBREW", "false")

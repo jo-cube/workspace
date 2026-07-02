@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # lab.Dockerfile — polyglot + JupyterLab
 
-ARG BASE_IMAGE=ghcr.io/jcube/workspace:polyglot
+ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:polyglot
 FROM ${BASE_IMAGE}
 
 USER dev

@@ -105,3 +105,11 @@ environment variables, CI secrets, or platform secret stores.
 - Docker with BuildKit/buildx
 - Docker Compose v2
 - [`just`](https://just.systems)
+
+## More docs
+
+- [Image flavors](docs/images.md)
+- [Local development](docs/local-development.md)
+- [Tool manifest](docs/tools.md)
+- [Architecture](docs/architecture.md)
+- [Releasing](docs/releasing.md)

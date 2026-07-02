@@ -2,7 +2,7 @@
 # platform.Dockerfile — polyglot + Kubernetes/cloud/API/DB tooling
 # All binary downloads are multi-arch (amd64/arm64).
 
-ARG BASE_IMAGE=ghcr.io/jcube/workspace:polyglot
+ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:polyglot
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH

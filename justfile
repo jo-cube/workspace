@@ -1,6 +1,6 @@
 # justfile
 
-registry := env("REGISTRY", "ghcr.io/jcube")
+registry := env("REGISTRY", "ghcr.io/jo-cube")
 tag := env("TAG", "latest")
 flavor := env("FLAVOR", "code")
 

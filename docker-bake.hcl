@@ -5,11 +5,19 @@
 // Python/JVM/Rust/Node/platform tool installs.
 
 variable "REGISTRY" {
-  default = "ghcr.io/jcube"
+  default = "ghcr.io/jo-cube"
 }
 
 variable "TAG" {
   default = "latest"
+}
+
+variable "CACHE_REGISTRY" {
+  default = "ghcr.io/jo-cube"
+}
+
+variable "CACHE_IMAGE" {
+  default = "workspace-cache"
 }
 
 variable "CI" {
@@ -27,8 +35,8 @@ group "all" {
 target "base-core" {
   dockerfile = "docker/base.Dockerfile"
   context    = "."
-  cache-from = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-base-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-base-core,mode=max"] : []
+  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core"] : []
+  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core,mode=max"] : []
 }
 
 target "base" {
@@ -45,8 +53,8 @@ target "code-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:base-core" }
   contexts   = { "${REGISTRY}/workspace:base-core" = "target:base-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-code-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-code-core,mode=max"] : []
+  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core"] : []
+  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core,mode=max"] : []
 }
 
 target "code" {
@@ -63,8 +71,8 @@ target "python-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
   contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-python-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-python-core,mode=max"] : []
+  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:python-core"] : []
+  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:python-core,mode=max"] : []
 }
 
 target "python" {
@@ -81,8 +89,8 @@ target "jvm-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
   contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-jvm-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-jvm-core,mode=max"] : []
+  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:jvm-core"] : []
+  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:jvm-core,mode=max"] : []
 }
 
 target "jvm" {
@@ -99,8 +107,8 @@ target "polyglot-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
   contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-polyglot-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-polyglot-core,mode=max"] : []
+  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core"] : []
+  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core,mode=max"] : []
 }
 
 target "polyglot" {
@@ -117,8 +125,8 @@ target "lab-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:polyglot-core" }
   contexts   = { "${REGISTRY}/workspace:polyglot-core" = "target:polyglot-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-lab-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-lab-core,mode=max"] : []
+  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:lab-core"] : []
+  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:lab-core,mode=max"] : []
 }
 
 target "lab" {
@@ -135,8 +143,8 @@ target "platform-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:polyglot-core" }
   contexts   = { "${REGISTRY}/workspace:polyglot-core" = "target:polyglot-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-platform-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-platform-core,mode=max"] : []
+  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core"] : []
+  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core,mode=max"] : []
 }
 
 target "platform" {
@@ -153,8 +161,8 @@ target "full-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:platform-core" }
   contexts   = { "${REGISTRY}/workspace:platform-core" = "target:platform-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-full-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${REGISTRY}/workspace:cache-full-core,mode=max"] : []
+  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core"] : []
+  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core,mode=max"] : []
 }
 
 target "full" {

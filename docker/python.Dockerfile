@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # python.Dockerfile — code + Python/uv
 
-ARG BASE_IMAGE=ghcr.io/jcube/workspace:code
+ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:code
 FROM ${BASE_IMAGE}
 
 USER dev

@@ -7,7 +7,7 @@ variable "TAG" {
 }
 
 variable "BASE_IMAGE" {
-  default = "ghcr.io/jcube/workspace:polyglot"
+  default = "ghcr.io/jo-cube/workspace:polyglot"
 }
 
 variable "ENABLE_HOMEBREW" {
