@@ -1,0 +1,57 @@
+#!/bin/sh
+# code-server — browser IDE on port 8081 (behind Caddy at /code/)
+if [ "${ENABLE_CODE}" != "true" ]; then
+  exec sleep infinity
+fi
+
+export HOME=/home/dev
+export PORT=8081
+
+env_password="${PASSWORD:-}"
+env_hashed_password="${HASHED_PASSWORD:-}"
+env_config_file="${WORKSPACE_CONFIG_FILE:-}"
+config_file="${WORKSPACE_CONFIG_FILE:-/etc/workspace/config.env}"
+if [ -n "$env_config_file" ] && [ ! -r "$config_file" ]; then
+  echo "WORKSPACE_CONFIG_FILE is not readable: $config_file" >&2
+  exit 1
+fi
+
+if [ -r "$config_file" ]; then
+  set -a
+  . "$config_file"
+  set +a
+fi
+
+[ -n "$env_password" ] && PASSWORD="$env_password"
+[ -n "$env_hashed_password" ] && HASHED_PASSWORD="$env_hashed_password"
+
+auth=none
+if [ -n "${PASSWORD:-}" ] || [ -n "${HASHED_PASSWORD:-}" ]; then
+  auth=password
+fi
+
+mkdir -p /home/dev/.config/code-server/User
+if [ ! -f /home/dev/.config/code-server/User/settings.json ]; then
+  cat > /home/dev/.config/code-server/User/settings.json <<'EOF'
+{
+  "terminal.integrated.defaultProfile.linux": "zsh",
+  "terminal.integrated.profiles.linux": {
+    "zsh": {
+      "path": "/bin/zsh",
+      "args": ["-l"]
+    }
+  },
+  "terminal.integrated.shellIntegration.enabled": true,
+  "workbench.startupEditor": "none"
+}
+EOF
+  chown -R dev:dev /home/dev/.config/code-server
+fi
+
+exec s6-setuidgid dev \
+  code-server \
+    --bind-addr 127.0.0.1:8081 \
+    --auth "$auth" \
+    --disable-telemetry \
+    --user-data-dir /home/dev/.config/code-server \
+    /workspace

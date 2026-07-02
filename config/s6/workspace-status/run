@@ -1,0 +1,3 @@
+#!/bin/sh
+export USER="${USER:-dev}"
+exec /usr/local/bin/workspace-status

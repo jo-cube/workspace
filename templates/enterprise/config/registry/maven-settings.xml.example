@@ -1,0 +1,11 @@
+<!-- Copy to maven-settings.xml and use:
+     mvn -s /etc/enterprise/registry/maven-settings.xml ... -->
+<settings>
+  <mirrors>
+    <mirror>
+      <id>internal</id>
+      <url>https://maven.internal.example.com/repository/public/</url>
+      <mirrorOf>*</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>

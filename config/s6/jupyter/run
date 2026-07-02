@@ -1,0 +1,37 @@
+#!/bin/sh
+# JupyterLab — notebook server
+if [ "${ENABLE_JUPYTER}" != "true" ]; then
+  exec sleep infinity
+fi
+
+export HOME=/home/dev
+env_jupyter_token="${JUPYTER_TOKEN:-}"
+env_config_file="${WORKSPACE_CONFIG_FILE:-}"
+config_file="${WORKSPACE_CONFIG_FILE:-/etc/workspace/config.env}"
+if [ -n "$env_config_file" ] && [ ! -r "$config_file" ]; then
+  echo "WORKSPACE_CONFIG_FILE is not readable: $config_file" >&2
+  exit 1
+fi
+
+if [ -r "$config_file" ]; then
+  set -a
+  . "$config_file"
+  set +a
+fi
+
+[ -n "$env_jupyter_token" ] && JUPYTER_TOKEN="$env_jupyter_token"
+
+token_arg=--IdentityProvider.token=
+if [ -n "${JUPYTER_TOKEN:-}" ]; then
+  token_arg=--IdentityProvider.token="$JUPYTER_TOKEN"
+fi
+
+cd /workspace || exit 1
+exec s6-setuidgid dev \
+  jupyter-lab \
+    --ip=127.0.0.1 \
+    --port=8888 \
+    --no-browser \
+    --ServerApp.base_url=/lab \
+    "$token_arg" \
+    --notebook-dir=/workspace

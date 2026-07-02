@@ -1,0 +1,15 @@
+# Runtime state
+workspace/
+!workspace/.gitkeep
+
+# Secrets (never commit)
+secrets/
+
+# Real CA certificates (use CI/CD secrets)
+config/ca-certificates/*.crt
+
+# Docker
+.env
+
+# OS
+.DS_Store

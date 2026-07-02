@@ -1,0 +1,25 @@
+# Runtime state
+workspace/
+!workspace/.gitkeep
+
+# Build-time CA certificates (enterprise laptops)
+build-ca-certs/*.crt
+build-ca-certs/*.pem
+!build-ca-certs/.gitkeep
+
+# Optional baked auth file
+auth/*.env
+!auth/.gitkeep
+
+# Optional baked runtime config file
+runtime-config/*.env
+!runtime-config/.gitkeep
+
+# Secrets (never commit)
+secrets/
+
+# Docker
+.env
+
+# OS
+.DS_Store

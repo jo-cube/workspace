@@ -1,0 +1,8 @@
+.git
+.github
+*.md
+docs/
+workspace/
+secrets/
+config/ca-certificates/*
+!config/ca-certificates/*.crt
