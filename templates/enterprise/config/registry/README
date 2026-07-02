@@ -1,0 +1,22 @@
+# Enterprise package registry configuration.
+# These files are copied to /etc/enterprise/registry/ and the same host
+# directory is mounted there by compose for local overrides.
+# Commit endpoints and mirrors here, not credentials.
+
+# Typical files to copy from examples:
+# - .npmrc.example -> .npmrc
+# - pip.conf.example -> pip.conf
+# - maven-settings.xml.example -> maven-settings.xml
+# - gradle-init.gradle.example -> gradle-init.gradle
+# - cargo-config.toml.example -> cargo-config.toml
+# - go.env.example -> go.env
+
+# Point tools at these files with environment variables in compose or CI:
+# PIP_CONFIG_FILE=/etc/enterprise/registry/pip.conf
+# NPM_CONFIG_USERCONFIG=/etc/enterprise/registry/.npmrc
+# mvn -s /etc/enterprise/registry/maven-settings.xml ...
+# GRADLE_USER_HOME=/cache/gradle plus init script copied into /cache/gradle/init.d/
+# CARGO_HOME=/opt/rust/cargo plus config copied to /opt/rust/cargo/config.toml
+# GOENV=/etc/enterprise/registry/go.env
+#
+# Docker registry mirrors and auth belong on the host Docker daemon or CI runner.

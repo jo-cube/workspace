@@ -1,0 +1,24 @@
+# Enterprise Git defaults
+# Applied system-wide via /etc/gitconfig
+
+[http]
+    # sslCAInfo = /etc/ssl/certs/ca-certificates.crt
+    # proxy = http://proxy.internal.example.com:8080
+
+[url "https://github.internal.example.com/"]
+    # insteadOf = gh:
+
+# Configure credential helpers locally or through your platform if needed.
+# Do not bake credential storage policy into the template.
+
+[init]
+    defaultBranch = main
+
+[pull]
+    rebase = true
+
+[push]
+    autoSetupRemote = true
+
+[core]
+    autocrlf = input

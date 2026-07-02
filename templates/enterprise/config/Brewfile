@@ -1,0 +1,10 @@
+# Enterprise Brewfile
+# Install via: brew bundle --file=Brewfile
+
+# Example enterprise taps
+# tap "internal/tools", "https://github.internal.example.com/platform/homebrew-tools"
+
+# Enterprise CLI tools (examples)
+# brew "internal-cli"
+# brew "platform-ctl"
+# brew "vault"

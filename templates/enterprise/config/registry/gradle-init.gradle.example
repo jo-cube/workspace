@@ -1,0 +1,8 @@
+// Copy to gradle-init.gradle, then copy or mount it to:
+// /cache/gradle/init.d/enterprise.gradle
+allprojects {
+    repositories {
+        maven { url = uri("https://maven.internal.example.com/repository/public/") }
+        mavenCentral()
+    }
+}

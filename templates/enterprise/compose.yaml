@@ -1,0 +1,26 @@
+# templates/enterprise/compose.yaml
+# Local development with enterprise overlay
+
+services:
+  workspace:
+    image: ${REGISTRY:-registry.internal.example.com/workspace}:${TAG:-latest}
+    ports:
+      - "${WORKSPACE_PORT:-8080}:8080"
+    volumes:
+      - ./workspace:/workspace
+      - home:/home/dev
+      - cache:/cache
+      - ./config:/etc/enterprise:ro
+      - ./secrets:/secrets:ro
+    env_file: ./config/proxy.env
+    environment:
+      - ENABLE_CADDY=true
+      - WORKSPACE_CONFIG_FILE
+      - PASSWORD
+      - HASHED_PASSWORD
+      - JUPYTER_TOKEN
+    hostname: workspace
+
+volumes:
+  home:
+  cache:

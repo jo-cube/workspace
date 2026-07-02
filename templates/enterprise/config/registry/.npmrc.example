@@ -1,0 +1,3 @@
+# Uncomment and configure for your internal npm registry
+# registry=https://npm.internal.example.com/
+# //npm.internal.example.com/:_authToken=${NPM_TOKEN}

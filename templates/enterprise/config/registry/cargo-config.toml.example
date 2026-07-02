@@ -1,0 +1,7 @@
+# Copy to cargo-config.toml, then copy or mount it to:
+# /opt/rust/cargo/config.toml
+[source.crates-io]
+replace-with = "internal"
+
+[source.internal]
+registry = "sparse+https://cargo.internal.example.com/index/"

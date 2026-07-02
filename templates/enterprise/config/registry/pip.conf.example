@@ -1,0 +1,4 @@
+# Uncomment and configure for your internal PyPI
+# [global]
+# index-url = https://pypi.internal.example.com/simple/
+# trusted-host = pypi.internal.example.com

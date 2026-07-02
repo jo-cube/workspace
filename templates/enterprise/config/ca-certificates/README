@@ -1,0 +1,9 @@
+# Place enterprise CA certificate files (.crt) in this directory.
+# They will be added to the system trust store during image build.
+#
+# Example:
+#   root-ca.crt
+#   issuing-ca.crt
+#
+# Do NOT commit real certificates to version control.
+# Use CI/CD secrets or a secure artifact store to inject them at build time.

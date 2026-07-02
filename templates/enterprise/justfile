@@ -1,0 +1,51 @@
+# templates/enterprise/justfile
+
+base_image := env("BASE_IMAGE", "ghcr.io/jcube/workspace:polyglot")
+registry := env("REGISTRY", "registry.internal.example.com/workspace")
+tag := env("TAG", "latest")
+homebrew := env("ENABLE_HOMEBREW", "false")
+
+# List available commands
+default:
+    @just --list
+
+# Build the enterprise overlay image
+build:
+    set -a; [ ! -f config/proxy.env ] || . ./config/proxy.env; set +a; \
+    REGISTRY={{registry}} TAG={{tag}} BASE_IMAGE={{base_image}} ENABLE_HOMEBREW={{homebrew}} docker buildx bake enterprise
+
+# Rebuild and start the workspace
+up:
+    just build
+    REGISTRY={{registry}} TAG={{tag}} docker compose up -d --no-build
+
+# Start the workspace, building only when the local image is missing
+start:
+    @image="{{registry}}:{{tag}}"; \
+    docker image inspect "$image" >/dev/null 2>&1 || just build; \
+    REGISTRY={{registry}} TAG={{tag}} docker compose up -d --no-build
+
+# Stop the workspace
+down:
+    docker compose down
+
+# Open a shell in the workspace
+shell:
+    docker compose exec workspace zsh
+
+# Follow logs
+logs:
+    docker compose logs -f
+
+# Push to enterprise registry
+push:
+    set -a; [ ! -f config/proxy.env ] || . ./config/proxy.env; set +a; \
+    REGISTRY={{registry}} TAG={{tag}} BASE_IMAGE={{base_image}} ENABLE_HOMEBREW={{homebrew}} docker buildx bake enterprise --push
+
+# Remove volumes
+clean:
+    docker compose down -v
+
+# Build with Homebrew enabled
+build-with-homebrew:
+    ENABLE_HOMEBREW=true just build
