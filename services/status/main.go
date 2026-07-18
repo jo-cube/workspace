@@ -23,23 +23,28 @@ var (
 )
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", handleHealth)
-	mux.HandleFunc("/ready", handleReady)
-	mux.HandleFunc("/status", handleStatus)
-	mux.HandleFunc("/status/services", handleServices)
-	mux.HandleFunc("/status/tools", handleTools)
-
-	addr := ":8082"
-	if v := os.Getenv("STATUS_PORT"); v != "" {
-		addr = ":" + v
+	server := &http.Server{
+		Addr:              "127.0.0.1:8082",
+		Handler:           newHandler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       30 * time.Second,
 	}
 
-	fmt.Printf("workspace-status listening on %s\n", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	fmt.Printf("workspace-status listening on %s\n", server.Addr)
+	if err := server.ListenAndServe(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func newHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", handleHealth)
+	mux.HandleFunc("GET /ready", handleReady)
+	mux.HandleFunc("GET /status", handleStatus)
+	mux.HandleFunc("GET /status/services", handleServices)
+	mux.HandleFunc("GET /status/tools", handleTools)
+	return mux
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {

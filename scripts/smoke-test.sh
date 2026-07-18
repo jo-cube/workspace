@@ -38,7 +38,7 @@ build_flavor() {
 run_check() {
   local image="$1" desc="$2"
   shift 2
-  if docker run --rm --entrypoint /bin/sh "$image" -lc "$*" &>/dev/null; then
+  if docker run --rm --user dev --entrypoint /bin/sh "$image" -lc "$*" &>/dev/null; then
     pass "$desc"
   else
     fail "$desc"
@@ -49,11 +49,20 @@ run_version() {
   local image="$1" desc="$2"
   shift 2
   local out
-  if out=$(docker run --rm --entrypoint /bin/sh "$image" -lc "$*" 2>&1); then
+  if out=$(docker run --rm --user dev --entrypoint /bin/sh "$image" -lc "$*" 2>&1); then
     pass "$desc: ${out%%$'\n'*}"
   else
     fail "$desc"
   fi
+}
+
+wait_for_url() {
+  local container="$1" url="$2"
+  for _ in {1..30}; do
+    docker exec "$container" curl -fsS --max-time 2 "$url" &>/dev/null && return 0
+    sleep 1
+  done
+  return 1
 }
 
 test_base() {
@@ -79,8 +88,7 @@ test_code() {
   header "Testing: code services"
   docker rm -f smoke-code &>/dev/null || true
   cid="$(docker run -d --name smoke-code "$img")"
-  sleep 8
-  if docker exec "$cid" curl -fsS --max-time 5 http://127.0.0.1:8080/health &>/dev/null; then
+  if wait_for_url "$cid" http://127.0.0.1:8080/health; then
     pass "Caddy health endpoint responding"
   else
     fail "Caddy health endpoint responding"
@@ -90,12 +98,22 @@ test_code() {
   else
     fail "code-server responding"
   fi
+  if docker exec "$cid" sh -lc "curl -fsS --max-time 10 http://127.0.0.1:8080/status | jq -e '.status == \"running\" and (.services | length == 4)'" &>/dev/null; then
+    pass "status endpoint reports services"
+  else
+    fail "status endpoint reports services"
+  fi
+  if docker exec "$cid" sh -lc "curl -fsS --max-time 60 http://127.0.0.1:8080/status/tools | jq -e 'map(.name) | index(\"git\")'" &>/dev/null; then
+    pass "tool inventory includes git"
+  else
+    fail "tool inventory includes git"
+  fi
   docker rm -f "$cid" &>/dev/null || true
 
   header "Testing: code auth"
   docker rm -f smoke-code-auth &>/dev/null || true
   cid="$(docker run -d --name smoke-code-auth -e PASSWORD=smoke "$img")"
-  sleep 8
+  wait_for_url "$cid" http://127.0.0.1:8080/code/ || true
   if docker exec "$cid" sh -lc "if curl -fsSI --max-time 5 http://127.0.0.1:8080/code/ | grep -qi '^www-authenticate:'; then exit 1; fi" &>/dev/null; then
     pass "code-server auth headers"
   else
@@ -163,7 +181,7 @@ test_lab() {
   header "Testing: lab auth"
   docker rm -f smoke-lab-auth &>/dev/null || true
   cid="$(docker run -d --name smoke-lab-auth -e JUPYTER_TOKEN=smoke "$img")"
-  sleep 10
+  wait_for_url "$cid" http://127.0.0.1:8080/lab || true
   if docker exec "$cid" sh -lc "if curl -fsS -D - -o /dev/null --max-time 5 http://127.0.0.1:8080/lab | grep -qi '^www-authenticate:'; then exit 1; fi" &>/dev/null; then
     pass "JupyterLab auth headers"
   else

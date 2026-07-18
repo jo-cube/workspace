@@ -9,7 +9,7 @@
 					"listen": [":8080"],
 					"routes": [
 						{
-							"match": [{"path": ["/health", "/health/*"]}],
+							"match": [{"path": ["/health"]}],
 							"handle": [{
 								"handler": "reverse_proxy",
 								"upstreams": [{"dial": "127.0.0.1:8082"}]
