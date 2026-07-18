@@ -12,18 +12,22 @@ default:
 # Build the enterprise overlay image
 build:
     set -a; [ ! -f config/proxy.env ] || . ./config/proxy.env; set +a; \
-    REGISTRY={{registry}} TAG={{tag}} BASE_IMAGE={{base_image}} ENABLE_HOMEBREW={{homebrew}} docker buildx bake enterprise
+    REGISTRY={{ registry }} TAG={{ tag }} BASE_IMAGE={{ base_image }} ENABLE_HOMEBREW={{ homebrew }} docker buildx bake enterprise
 
 # Rebuild and start the workspace
 up:
     just build
-    REGISTRY={{registry}} TAG={{tag}} docker compose up -d --no-build
+    mkdir -p workspace runtime-config secrets
+    chmod 0777 workspace
+    REGISTRY={{ registry }} TAG={{ tag }} docker compose up -d --no-build
 
 # Start the workspace, building only when the local image is missing
 start:
-    @image="{{registry}}:{{tag}}"; \
+    @image="{{ registry }}:{{ tag }}"; \
     docker image inspect "$image" >/dev/null 2>&1 || just build; \
-    REGISTRY={{registry}} TAG={{tag}} docker compose up -d --no-build
+    mkdir -p workspace runtime-config secrets; \
+    chmod 0777 workspace; \
+    REGISTRY={{ registry }} TAG={{ tag }} docker compose up -d --no-build
 
 # Stop the workspace
 down:
@@ -40,7 +44,7 @@ logs:
 # Push to enterprise registry
 push:
     set -a; [ ! -f config/proxy.env ] || . ./config/proxy.env; set +a; \
-    REGISTRY={{registry}} TAG={{tag}} BASE_IMAGE={{base_image}} ENABLE_HOMEBREW={{homebrew}} docker buildx bake enterprise --push
+    REGISTRY={{ registry }} TAG={{ tag }} BASE_IMAGE={{ base_image }} ENABLE_HOMEBREW={{ homebrew }} docker buildx bake enterprise --push
 
 # Remove volumes
 clean:

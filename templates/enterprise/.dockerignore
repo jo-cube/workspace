@@ -3,6 +3,7 @@
 *.md
 docs/
 workspace/
+runtime-config/
 secrets/
 config/ca-certificates/*
 !config/ca-certificates/*.crt

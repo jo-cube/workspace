@@ -5,6 +5,8 @@
 ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:polyglot
 FROM ${BASE_IMAGE}
 
+ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
+
 # Enterprise CA certificates
 COPY config/ca-certificates/ /usr/local/share/ca-certificates/enterprise/
 RUN update-ca-certificates
@@ -13,9 +15,8 @@ RUN update-ca-certificates
 ARG ENABLE_HOMEBREW=false
 RUN if [ "$ENABLE_HOMEBREW" = "true" ]; then \
       NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
-      && echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/dev/.zshrc \
-      && echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/dev/.bashrc \
-      && chown dev:dev /home/dev/.zshrc /home/dev/.bashrc; \
+      && test -x /home/linuxbrew/.linuxbrew/bin/brew \
+      && /home/linuxbrew/.linuxbrew/bin/brew --version; \
     fi
 
 # Optional: install Brewfile packages
