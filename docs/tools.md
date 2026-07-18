@@ -16,7 +16,8 @@ Tools are organized by image flavor. The Dockerfiles are the source of truth for
 | platform | platform, full | Kubernetes/cloud ops |
 | security | full | Scanning, secrets |
 | git-productivity | platform, full | Git workflow |
-| build-runtime | all flavors | Make, just, yq |
+| build-runtime | all flavors | Make |
+| platform-runtime | platform, full | just, yq |
 | notebooks | lab, full | JupyterLab kernels |
 | metrics | full | Code stats, benchmarking |
 | homebrew | enterprise only | Optional package manager |

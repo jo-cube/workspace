@@ -32,6 +32,20 @@ no_proxy=localhost,127.0.0.1,.internal.example.com
 
 `just build` passes proxy variables to Docker buildx bake. `docker compose` also loads this file at runtime. Do not put proxy credentials in this file.
 
+## Workspace authentication
+
+Put optional code-server and Jupyter credentials in
+`runtime-config/config.env`:
+
+```bash
+PASSWORD='change-me'
+JUPYTER_TOKEN='change-me-too'
+```
+
+The directory is gitignored, excluded from the Docker build context, and
+mounted read-only at `/etc/workspace/`. Compose publishes to host loopback by
+default; keep that boundary for passwordless use.
+
 ## Git
 
 Edit `config/git/gitconfig` for enterprise defaults:

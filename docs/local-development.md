@@ -58,9 +58,12 @@ volumes:
   - ./workspace:/workspace       # your projects
   - home:/home/dev               # persists dotfiles, shell history
   - cache:/cache                 # package caches (uv, gradle, go, etc.)
+  - ./runtime-config:/etc/workspace:ro  # optional local app config
 ```
 
-The `home` and `cache` volumes persist across container recreations. Remove them with:
+The `home` and `cache` volumes persist across container recreations. Image
+dotfiles seed a new home volume once; image updates do not overwrite later user
+changes. Remove the volumes with:
 
 ```bash
 just reset
@@ -72,6 +75,10 @@ just reset
 just reset-workspace
 ```
 
+`just start` and `just up` make the bind root writable for the image's fixed
+`dev` user. This assumes the documented trusted single-user host; use a
+deployment-specific UID or mount policy on a multi-user host.
+
 ## Environment overrides
 
 Create a `.env` file for host-side selection:
@@ -79,6 +86,7 @@ Create a `.env` file for host-side selection:
 ```bash
 FLAVOR=full
 WORKSPACE_PORT=9090
+WORKSPACE_BIND_ADDRESS=127.0.0.1
 PASSWORD='change-me'
 JUPYTER_TOKEN='change-me-too'
 ```
@@ -86,6 +94,9 @@ JUPYTER_TOKEN='change-me-too'
 Service defaults come from the image flavor. Use `lab` or `full` for JupyterLab.
 Set `PASSWORD` or `HASHED_PASSWORD` for code-server auth. Set `JUPYTER_TOKEN` for JupyterLab auth. Caddy is the path router.
 Leave those values unset for an unauthenticated local container on a trusted loopback-only setup.
+Compose binds to loopback by default. Set `WORKSPACE_BIND_ADDRESS=0.0.0.0` only
+behind an authenticated workspace proxy such as Coder, or after configuring
+app credentials and a suitable network/TLS boundary.
 
 You can also use a generic runtime config file:
 
@@ -99,7 +110,10 @@ PASSWORD='change-me'
 JUPYTER_TOKEN='change-me-too'
 ```
 
-`runtime-config/config.env` is gitignored and copied into the image at `/etc/workspace/config.env`. A runtime connector can write the same file before Caddy starts, or set `WORKSPACE_CONFIG_FILE` to another container path.
+`runtime-config/config.env` is gitignored and mounted read-only at
+`/etc/workspace/config.env`. It is also excluded from the Docker build context,
+so credentials stay out of image layers. A runtime connector can mount the same
+file elsewhere and set `WORKSPACE_CONFIG_FILE` to that container path.
 Use quoted values for secrets or hashes so shell metacharacters stay literal.
 
 ## Health check
@@ -121,7 +135,7 @@ just start
 # Rebuild and start
 just up full
 
-# Runtime config-only rebuilds use the final overlay and should be fast
+# Rebuild one flavor and its final runtime overlay
 docker buildx bake full
 
 # Full clean rebuild
@@ -146,7 +160,8 @@ just            # show all available commands
 ## Tips
 
 - The `workspace/` directory is bind-mounted, so its files survive `just reset`.
-- Shell history and config persist in the `home` volume.
+- Shell history and user-edited config persist in the `home` volume. Use
+  `just reset` when you intentionally want the current image defaults again.
 - Package caches (uv, gradle, go modules) persist in the `cache` volume.
 - Use `just shell` for quick terminal access.
 - The workspace index page at root shows which services are available.

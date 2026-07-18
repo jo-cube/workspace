@@ -24,6 +24,7 @@ ghcr.io/jo-cube/workspace:polyglot   (generic base)
 | Proxy settings | Build and runtime | build args, compose env file, /etc/profile.d |
 | Registry config | Runtime | `/etc/enterprise/registry/` examples and env vars |
 | Registry credentials | Runtime | environment, Docker credentials, or /secrets/ |
+| App authentication | Runtime | `/etc/workspace/config.env` read-only mount |
 | Secrets | Runtime | /secrets/ read-only mount |
 
 ## Security
@@ -32,7 +33,12 @@ ghcr.io/jo-cube/workspace:polyglot   (generic base)
 - CA certificates and Git config are the only build-time additions
 - Proxy URLs use placeholders in version control
 - Secrets are mounted read-only at `/secrets/`
+- App credentials are mounted read-only at `/etc/workspace/`, not baked
 - Registry credentials should come from environment or secret mounts
+- Compose publishes to host loopback unless the operator opts into another bind address
+
+The inherited `/home/dev` volume is user state. Image dotfiles seed it once;
+managed enterprise defaults belong under `/etc` so image updates can apply them.
 
 ## Extending
 

@@ -25,7 +25,16 @@ git push origin v1.2.3
 ```
 
 The release workflow verifies that the tagged commit is reachable from
-`origin/main` before publishing.
+`origin/main` before publishing. It also:
+
+- smoke-tests the `code`, `platform`, and `full` images on the native runner;
+- rejects fixed Critical vulnerabilities reported by Trivy;
+- publishes `linux/amd64` and `linux/arm64` images; and
+- attaches BuildKit provenance and an SBOM to each published image.
+
+These checks make a release a reviewed, traceable artifact. They do not claim
+that builds are byte-for-byte reproducible: several upstream installers and
+base package repositories still resolve content at build time.
 
 Stable tags publish:
 
@@ -68,6 +77,8 @@ full-patch-<branch>-<short-sha>
 ```
 
 Patch images are for validation only. They do not update stable or latest tags.
+They include BuildKit provenance and an SBOM, while the branch CI smoke-tests
+the `code` flavor.
 
 ## Notes
 
@@ -83,6 +94,5 @@ Patch images are for validation only. They do not update stable or latest tags.
 - After the first successful publish, check the GHCR package visibility. GitHub
   may create the package as private; switch it to public if these images should
   be publicly pullable.
-- Multi-platform builds publish `linux/amd64` and `linux/arm64`.
 - The workflows use `docker buildx bake`; do not replace them with
   `docker compose up --build`.

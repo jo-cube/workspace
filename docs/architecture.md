@@ -9,7 +9,7 @@
 - Caddy provides a single-port reverse proxy with path-based routing
 - Browser app authentication stays inside code-server and JupyterLab
 - Image flavors own service defaults; runtime env only supplies app config and auth
-- Images are reproducible from build — no runtime package installs by default
+- Images install tools at build time; releases are smoke-tested, scanned, and attested
 - Volumes preserve state across container restarts
 
 ## Image hierarchy
@@ -33,12 +33,16 @@ Each tool Dockerfile is self-contained and references its parent via `ARG BASE_I
 
 ```
 /workspace      User projects (bind mount)
-/home/dev       Dev user home (named volume)
+/home/dev       Dev user home (named volume, seeded once)
 /cache          Package/tool caches (named volume)
-/config         Read-only runtime config (bind mount)
-/secrets        Read-only secrets (bind mount)
+/etc/workspace  Optional app config (read-only bind mount)
 /srv            Static assets (index page)
 ```
+
+Managed image configuration lives under `/etc`, `/usr/local`, and `/srv` and
+follows image updates. Defaults copied into `/home/dev` are initial user state:
+they are seeded only when the home volume is empty and are not managed after
+that.
 
 ## Service supervision
 
@@ -74,7 +78,10 @@ s6-overlay starts all registered services. Each service checks its image-provide
                                        └──────────┘
 ```
 
-All internal services bind to 127.0.0.1. Only Caddy exposes 8080 externally.
+All internal services bind to 127.0.0.1. Caddy listens on the container's port
+8080, which Compose publishes to host loopback by default. A deployment may
+opt into another host bind address, but passwordless use is intended only for a
+trusted single-user loopback boundary or an authenticated workspace proxy.
 code-server and JupyterLab own browser login state when configured.
 
 Routes:
@@ -83,7 +90,7 @@ Routes:
 - `/lab`, `/lab/*` — JupyterLab
 - `/health`, `/ready`, `/status`, `/status/*` — workspace-status API. `/status` reports service state, not raw feature-flag environment.
 
-Unresolvable upstreams return a 503 error page suggesting which flavor to use.
+Requests to an unavailable app receive Caddy's normal upstream error response.
 
 ## Build system
 

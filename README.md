@@ -59,12 +59,15 @@ Kafka `kcat`, S3-compatible object storage clients (`s5cmd`, `mc`), RocksDB
 admin tools, and stream-processing tools.
 
 `/workspace` is the bind-mounted project root.
-`/home/dev` is user state: shell history, config, and caches.
+`/home/dev` is user state: shell history, config, and caches. Image-provided
+dotfiles seed a new home volume once; later image updates do not overwrite user
+changes.
 
 ## Optional auth
 
-code-server and JupyterLab can run without auth for local-only use. To enable
-app-level password/token protection, set environment variables in `.env` or in
+Compose binds to `127.0.0.1` by default, so code-server and JupyterLab can run
+without app-level auth for trusted single-user local use. To enable password or
+token protection, set environment variables in `.env` or in
 `runtime-config/config.env`:
 
 ```bash
@@ -74,7 +77,12 @@ JUPYTER_TOKEN='change-me-too'
 
 Use `HASHED_PASSWORD` instead of `PASSWORD` when you already have a code-server
 password hash. Caddy only routes traffic; code-server and JupyterLab own their
-login behavior.
+login behavior. `runtime-config/` is mounted read-only at `/etc/workspace`; its
+contents are excluded from both Git and the Docker build context.
+
+To listen beyond loopback, set `WORKSPACE_BIND_ADDRESS=0.0.0.0`. Do that only
+behind an authenticated workspace proxy such as Coder, or after configuring
+app-level credentials and an appropriate network/TLS boundary.
 
 ## Enterprise overlay
 
@@ -93,7 +101,9 @@ environment variables, CI secrets, or platform secret stores.
 - Prefer `just` and `docker buildx bake`.
 - Use `just start <flavor>` to start from a local image, building only if missing.
 - Use `just up <flavor>` to rebuild explicitly.
-- Keep runtime config in the final runtime overlay so Caddy, s6, dotfiles, and config edits rebuild quickly.
+- Keep managed service and shell config in the final runtime overlay so rebuilds stay quick.
+- Keep local credentials in the read-only `runtime-config/` mount; changing them does not require a rebuild.
+- Treat `/home/dev` defaults as copy-once user state. Use managed `/etc` config for settings that must follow image updates.
 - Do not prune Docker build cache casually. It is useful state.
 - Keep build logs gated: redirect noisy logs to `/tmp/...` and show only a short tail on failure.
 - Add tests only when they freeze useful behavior or catch real regressions.
@@ -112,4 +122,5 @@ environment variables, CI secrets, or platform secret stores.
 - [Local development](docs/local-development.md)
 - [Tool manifest](docs/tools.md)
 - [Architecture](docs/architecture.md)
+- [Coder integration](docs/coder.md)
 - [Releasing](docs/releasing.md)
