@@ -7,11 +7,12 @@ services:
   workspace:
     image: ${REGISTRY:-ghcr.io/jo-cube}/workspace:${FLAVOR:-code}
     ports:
-      - "${WORKSPACE_PORT:-8080}:8080"
+      - "${WORKSPACE_BIND_ADDRESS:-127.0.0.1}:${WORKSPACE_PORT:-8080}:8080"
     volumes:
       - ./workspace:/workspace
       - home:/home/dev
       - cache:/cache
+      - ./runtime-config:/etc/workspace:ro
     environment:
       - ENABLE_CADDY=true
       - WORKSPACE_CONFIG_FILE

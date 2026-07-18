@@ -48,7 +48,6 @@ COPY config/profile.d/workspace.sh /etc/profile.d/workspace.sh
 COPY config/starship.toml /etc/starship.toml
 COPY config/zsh/zshrc /etc/zsh/zshrc
 COPY --from=status-build /workspace-status /usr/local/bin/workspace-status
-COPY runtime-config/ /etc/workspace/
 
 COPY --chown=dev:dev config/dotfiles/ /home/dev/
 

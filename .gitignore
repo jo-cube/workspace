@@ -1,5 +1,5 @@
 # Runtime state
-workspace/
+workspace/*
 !workspace/.gitkeep
 
 # Build-time CA certificates (enterprise laptops)
@@ -7,11 +7,7 @@ build-ca-certs/*.crt
 build-ca-certs/*.pem
 !build-ca-certs/.gitkeep
 
-# Optional baked auth file
-auth/*.env
-!auth/.gitkeep
-
-# Optional baked runtime config file
+# Optional mounted runtime config
 runtime-config/*.env
 !runtime-config/.gitkeep
 
