@@ -1,7 +1,7 @@
 // docker-bake.hcl
 // Build the workspace image family with: docker buildx bake <target>
 //
-// Runtime config is a final overlay so s6/Caddy/dotfile edits rebuild quickly
+// Runtime assets use a final overlay so s6/Caddy/dotfile edits rebuild quickly
 // Python/JVM/Rust/Node/platform tool installs.
 
 variable "REGISTRY" {

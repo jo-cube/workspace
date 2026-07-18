@@ -22,6 +22,8 @@ ARG GRON_VERSION=0.7.1
 ARG WEBSOCAT_VERSION=1.14.1
 ARG S5CMD_VERSION=2.3.0
 ARG MC_VERSION=RELEASE.2025-08-13T08-35-41Z
+ARG YQ_VERSION=v4.53.2
+ARG GRPC_GO_VERSION=v1.79.3
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -29,8 +31,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN <<EOF
 set -eu
 case "${TARGETARCH}" in
-  amd64) printf 'GRPCURL_ARCH=x86_64\nLAZYGIT_ARCH=x86_64\nDUCKDB_ARCH=amd64\nS5CMD_ARCH=64bit\n' ;;
-  arm64) printf 'GRPCURL_ARCH=arm64\nLAZYGIT_ARCH=arm64\nDUCKDB_ARCH=arm64\nS5CMD_ARCH=arm64\n' ;;
+  amd64) printf 'LAZYGIT_ARCH=x86_64\nDUCKDB_ARCH=amd64\n' ;;
+  arm64) printf 'LAZYGIT_ARCH=arm64\nDUCKDB_ARCH=arm64\n' ;;
 esac >> /etc/arch-env
 EOF
 
@@ -41,6 +43,26 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       postgresql-client redis-tools kcat miller rsync rocksdb-tools \
       datamash pv parallel gawk \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Build Go tools with the image toolchain so standard-library security fixes apply.
+RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
+    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
+    set -eux; \
+    GOBIN=/usr/local/bin go install github.com/tomnomnom/gron@v${GRON_VERSION}; \
+    GOBIN=/usr/local/bin go install github.com/peak/s5cmd/v2@v${S5CMD_VERSION}; \
+    mkdir /tmp/grpcurl-build; \
+    cd /tmp/grpcurl-build; \
+    go mod init workspace-grpcurl-build; \
+    go get github.com/fullstorydev/grpcurl/cmd/grpcurl@v${GRPCURL_VERSION}; \
+    go get google.golang.org/grpc@${GRPC_GO_VERSION}; \
+    GOBIN=/usr/local/bin go install -mod=mod github.com/fullstorydev/grpcurl/cmd/grpcurl; \
+    mkdir /tmp/mc-build; \
+    cd /tmp/mc-build; \
+    go mod init workspace-mc-build; \
+    go get github.com/minio/mc@${MC_VERSION}; \
+    go get google.golang.org/grpc@${GRPC_GO_VERSION}; \
+    GOBIN=/usr/local/bin go install -mod=mod github.com/minio/mc; \
+    rm -rf /tmp/grpcurl-build /tmp/mc-build
 
 # websocat
 RUN set -eux; \
@@ -81,13 +103,6 @@ RUN set -eux; \
     curl -fsSL "https://github.com/ducaale/xh/releases/download/v${XH_VERSION}/xh-v${XH_VERSION}-${MUSL_ARCH}.tar.gz" \
       | tar -C /usr/local/bin --strip-components=1 -xz --wildcards "*/xh"
 
-# grpcurl
-RUN set -eux; \
-    source /etc/arch-env; \
-    curl -fsSL \
-      "https://github.com/fullstorydev/grpcurl/releases/download/v${GRPCURL_VERSION}/grpcurl_${GRPCURL_VERSION}_linux_${GRPCURL_ARCH}.tar.gz" \
-      | tar -xz -C /usr/local/bin grpcurl
-
 # lazygit
 RUN set -eux; \
     source /etc/arch-env; \
@@ -112,7 +127,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # just (install script is arch-aware)
-RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin \
+    && just --version
 
 # DuckDB
 RUN set -eux; \
@@ -124,22 +140,10 @@ RUN set -eux; \
     rm /tmp/duckdb.zip
 
 # yq (TARGETARCH works directly)
-RUN curl -fsSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${TARGETARCH}" \
-    -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
-
-# gron (TARGETARCH works directly)
-RUN curl -fsSL \
-    "https://github.com/tomnomnom/gron/releases/download/v${GRON_VERSION}/gron-linux-${TARGETARCH}-${GRON_VERSION}.tgz" \
-    | tar -xz -C /usr/local/bin gron && chmod +x /usr/local/bin/gron
-
-# S3/object-storage clients
-RUN set -eux; \
-    source /etc/arch-env; \
-    curl -fsSL "https://github.com/peak/s5cmd/releases/download/v${S5CMD_VERSION}/s5cmd_${S5CMD_VERSION}_Linux-${S5CMD_ARCH}.tar.gz" \
-      | tar -xz -C /usr/local/bin s5cmd; \
-    curl -fsSL "https://dl.min.io/client/mc/release/linux-${TARGETARCH}/archive/mc.${MC_VERSION}" \
-      -o /usr/local/bin/mc; \
-    chmod +x /usr/local/bin/s5cmd /usr/local/bin/mc
+RUN curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${TARGETARCH}" \
+    -o /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq \
+    && yq --version
 
 # httpie (Python — arch-independent)
 USER dev

@@ -29,6 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && locale-gen en_US.UTF-8 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Build-time CA certificates (for enterprise/corporate laptop builds).
 # Place .crt files in build-ca-certs/ — they are gitignored by default.
 COPY build-ca-certs/ /usr/local/share/ca-certificates/
@@ -74,7 +76,8 @@ RUN . /etc/arch-env \
 COPY --from=caddy-bin /usr/bin/caddy /usr/bin/caddy
 
 # Starship prompt
-RUN curl -fsSL https://starship.rs/install.sh | sh -s -- --yes
+RUN curl -fsSL https://starship.rs/install.sh | sh -s -- --yes \
+    && starship --version
 
 # Create dev user (Ubuntu 26.04 ships with an 'ubuntu' user at UID/GID 1000)
 ARG DEV_UID=1000
@@ -86,7 +89,7 @@ RUN userdel -r ubuntu 2>/dev/null || true \
     && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev
 
 # Runtime and shared tool directories
-RUN mkdir -p /workspace /cache /config /secrets /opt/uv-tools/bin /opt/sdkman \
+RUN mkdir -p /workspace /cache /secrets /opt/uv-tools/bin /opt/sdkman \
     && chown -R dev:dev /workspace /cache /opt/uv-tools /opt/sdkman
 
 ENV S6_KEEP_ENV=1 \

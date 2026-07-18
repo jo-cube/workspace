@@ -4,6 +4,10 @@
 ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:polyglot
 FROM ${BASE_IMAGE}
 
+ARG GONB_VERSION=v0.11.4
+ARG GO_TOOLS_VERSION=v0.48.0
+ARG GOPLS_VERSION=v0.21.1
+
 USER dev
 RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
     --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked,uid=1000,gid=1000 \
@@ -15,16 +19,15 @@ RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
   && rustup component add rust-src \
   && cargo install --locked evcxr_jupyter \
   && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install \
-  && uv tool update-shell \
-  && uv venv
+  && uv tool update-shell
 
 USER root
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked,uid=1000,gid=1000 \
     set -eux; \
-    GOBIN=/usr/local/bin go install github.com/janpfeifer/gonb@latest; \
-    GOBIN=/usr/local/bin go install golang.org/x/tools/cmd/goimports@latest; \
-    GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@latest; \
+    GOBIN=/usr/local/bin go install github.com/janpfeifer/gonb@${GONB_VERSION}; \
+    GOBIN=/usr/local/bin go install golang.org/x/tools/cmd/goimports@${GO_TOOLS_VERSION}; \
+    GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@${GOPLS_VERSION}; \
     HOME=/tmp/gonb-home gonb --install; \
     kernel_dir=/opt/uv-tools/jupyterlab/share/jupyter/kernels/gonb; \
     mkdir -p "$kernel_dir"; \

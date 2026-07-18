@@ -11,6 +11,9 @@ ARG TARGETARCH
 ARG GITLEAKS_VERSION=8.30.1
 ARG HYPERFINE_VERSION=1.20.0
 ARG TRIVY_VERSION=0.71.2
+ARG GONB_VERSION=v0.11.4
+ARG GO_TOOLS_VERSION=v0.48.0
+ARG GOPLS_VERSION=v0.21.1
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -18,8 +21,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN <<EOF
 set -eu
 case "${TARGETARCH}" in
-  amd64) printf 'GITLEAKS_ARCH=x64\nTRIVY_ARCH=64bit\n' ;;
-  arm64) printf 'GITLEAKS_ARCH=arm64\nTRIVY_ARCH=ARM64\n' ;;
+  amd64) printf 'TRIVY_ARCH=64bit\n' ;;
+  arm64) printf 'TRIVY_ARCH=ARM64\n' ;;
 esac >> /etc/arch-env
 EOF
 
@@ -35,16 +38,15 @@ RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
   && rustup component add rust-src \
   && cargo install --locked evcxr_jupyter \
   && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install \
-  && uv tool update-shell \
-  && uv venv
+  && uv tool update-shell
 
 USER root
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked,uid=1000,gid=1000 \
     set -eux; \
-    GOBIN=/usr/local/bin go install github.com/janpfeifer/gonb@latest; \
-    GOBIN=/usr/local/bin go install golang.org/x/tools/cmd/goimports@latest; \
-    GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@latest; \
+    GOBIN=/usr/local/bin go install github.com/janpfeifer/gonb@${GONB_VERSION}; \
+    GOBIN=/usr/local/bin go install golang.org/x/tools/cmd/goimports@${GO_TOOLS_VERSION}; \
+    GOBIN=/usr/local/bin go install golang.org/x/tools/gopls@${GOPLS_VERSION}; \
     HOME=/tmp/gonb-home gonb --install; \
     kernel_dir=/opt/uv-tools/jupyterlab/share/jupyter/kernels/gonb; \
     mkdir -p "$kernel_dir"; \
@@ -63,15 +65,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # trivy
 RUN set -eux; \
     source /etc/arch-env; \
-    curl -fsSL \
+    curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 2 \
       "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz" \
-      | tar -xz -C /usr/local/bin trivy
+      -o /tmp/trivy.tar.gz; \
+    tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy; \
+    rm /tmp/trivy.tar.gz
 
 # gitleaks
-RUN set -eux; \
-    source /etc/arch-env; \
-    curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${GITLEAKS_ARCH}.tar.gz" \
-      | tar -C /usr/local/bin -xz gitleaks
+RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
+    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
+    GOBIN=/usr/local/bin go install github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}
 
 # hyperfine
 RUN set -eux; \
