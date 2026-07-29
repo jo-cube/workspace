@@ -16,8 +16,8 @@ variable "CACHE_IMAGE" {
   default = "workspace-cache"
 }
 
-variable "CI" {
-  default = ""
+variable "PUBLISH" {
+  default = "false"
 }
 
 group "default" {
@@ -31,8 +31,8 @@ group "all" {
 target "base-core" {
   dockerfile = "docker/base.Dockerfile"
   context    = "."
-  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core,mode=max"] : []
+  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core"] : []
+  cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core,mode=max"] : []
 }
 
 target "code-core" {
@@ -40,8 +40,8 @@ target "code-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:base-core" }
   contexts   = { "${REGISTRY}/workspace:base-core" = "target:base-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core,mode=max"] : []
+  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core"] : []
+  cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core,mode=max"] : []
 }
 
 target "code" {
@@ -50,7 +50,7 @@ target "code" {
   tags       = ["${REGISTRY}/workspace:code-${TAG}", "${REGISTRY}/workspace:code"]
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
   contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
-  output     = CI == "" ? ["type=docker"] : []
+  output     = PUBLISH == "true" ? [] : ["type=docker"]
 }
 
 target "polyglot-core" {
@@ -58,8 +58,8 @@ target "polyglot-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
   contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core,mode=max"] : []
+  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core"] : []
+  cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core,mode=max"] : []
 }
 
 target "platform-core" {
@@ -67,8 +67,8 @@ target "platform-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:polyglot-core" }
   contexts   = { "${REGISTRY}/workspace:polyglot-core" = "target:polyglot-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core,mode=max"] : []
+  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core"] : []
+  cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core,mode=max"] : []
 }
 
 target "platform" {
@@ -77,7 +77,7 @@ target "platform" {
   tags       = ["${REGISTRY}/workspace:platform-${TAG}", "${REGISTRY}/workspace:platform"]
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:platform-core" }
   contexts   = { "${REGISTRY}/workspace:platform-core" = "target:platform-core" }
-  output     = CI == "" ? ["type=docker"] : []
+  output     = PUBLISH == "true" ? [] : ["type=docker"]
 }
 
 target "full-core" {
@@ -85,8 +85,8 @@ target "full-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:platform-core" }
   contexts   = { "${REGISTRY}/workspace:platform-core" = "target:platform-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core,mode=max"] : []
+  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core"] : []
+  cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core,mode=max"] : []
 }
 
 target "full" {
@@ -95,5 +95,5 @@ target "full" {
   tags       = ["${REGISTRY}/workspace:full-${TAG}", "${REGISTRY}/workspace:full", "${REGISTRY}/workspace:latest"]
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:full-core" }
   contexts   = { "${REGISTRY}/workspace:full-core" = "target:full-core" }
-  output     = CI == "" ? ["type=docker"] : []
+  output     = PUBLISH == "true" ? [] : ["type=docker"]
 }

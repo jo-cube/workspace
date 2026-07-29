@@ -143,7 +143,7 @@ jobs:
 
       - name: Publish code, platform, and full
         env:
-          CI: "true"
+          PUBLISH: "true"
           REGISTRY: ghcr.io/${{ github.repository_owner }}
           CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
           CACHE_IMAGE: workspace-cache
