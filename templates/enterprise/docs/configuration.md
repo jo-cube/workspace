@@ -59,22 +59,6 @@ Edit `config/git/gitconfig` for enterprise defaults:
     insteadOf = gh:
 ```
 
-## Homebrew
-
-Enable at build time:
-
-```bash
-ENABLE_HOMEBREW=true just build
-```
-
-Add enterprise packages to `config/Brewfile`:
-
-```ruby
-tap "internal/tools", "https://github.internal.example.com/platform/homebrew-tools"
-brew "internal-cli"
-brew "platform-ctl"
-```
-
 ## Package registries
 
 Place non-secret configuration in `config/registry/`:

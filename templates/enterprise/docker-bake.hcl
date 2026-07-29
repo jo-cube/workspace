@@ -7,11 +7,7 @@ variable "TAG" {
 }
 
 variable "BASE_IMAGE" {
-  default = "ghcr.io/jo-cube/workspace:polyglot"
-}
-
-variable "ENABLE_HOMEBREW" {
-  default = "false"
+  default = "ghcr.io/jo-cube/workspace:platform"
 }
 
 variable "HTTP_PROXY" {
@@ -36,7 +32,6 @@ target "enterprise" {
   tags       = ["${REGISTRY}:${TAG}"]
   args = {
     BASE_IMAGE      = BASE_IMAGE
-    ENABLE_HOMEBREW = ENABLE_HOMEBREW
     HTTP_PROXY      = HTTP_PROXY
     HTTPS_PROXY     = HTTPS_PROXY
     NO_PROXY        = NO_PROXY

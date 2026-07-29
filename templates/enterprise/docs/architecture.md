@@ -5,12 +5,11 @@
 The enterprise overlay does not build from scratch. It layers enterprise-specific configuration on top of a generic workspace image:
 
 ```
-ghcr.io/jo-cube/workspace:polyglot   (generic base)
+ghcr.io/jo-cube/workspace:platform   (generic base)
 └── enterprise overlay
     ├── CA certificates
     ├── proxy configuration
     ├── Git enterprise defaults
-    ├── Homebrew (optional)
     └── registry configuration
 ```
 
@@ -20,7 +19,6 @@ ghcr.io/jo-cube/workspace:polyglot   (generic base)
 |---------|-------------|-----|
 | CA certificates | Build time | `config/ca-certificates/` + `update-ca-certificates` |
 | Git defaults | Build time | COPY to /etc/gitconfig |
-| Homebrew + packages | Build time (optional) | ARG ENABLE_HOMEBREW |
 | Proxy settings | Build and runtime | build args, compose env file, /etc/profile.d |
 | Registry config | Runtime | `/etc/enterprise/registry/` examples and env vars |
 | Registry credentials | Runtime | environment, Docker credentials, or /secrets/ |
@@ -42,11 +40,7 @@ managed enterprise defaults belong under `/etc` so image updates can apply them.
 
 ## Extending
 
-To add new enterprise tools:
-
-1. **Static binary**: Download in the Dockerfile
-2. **Homebrew**: Add to `config/Brewfile` and build with `ENABLE_HOMEBREW=true`
-3. **Complex install**: Add the smallest Dockerfile step that installs it
+Add enterprise tools with the smallest practical Dockerfile install step.
 
 ## CI/CD pattern
 
@@ -58,7 +52,6 @@ steps:
       install -m 0644 "$CI_TRUST_BUNDLE" config/ca-certificates/root-ca.crt
       REGISTRY=registry.internal.example.com/workspace \
         BASE_IMAGE=ghcr.io/jo-cube/workspace:platform \
-        ENABLE_HOMEBREW=true \
         docker buildx bake enterprise --push
 ```
 
