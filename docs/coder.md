@@ -9,9 +9,9 @@ Coder provisions containers from workspace templates. These images provide:
 - A single proxy port (8080) for all web services
 - SSH access via `coder ssh`
 
-The Coder agent runs as `dev`; s6 remains PID 1 and continues to supervise Caddy,
-code-server, JupyterLab, and workspace-status. The example below does not publish a
-host port or require privileged mode.
+The Coder agent runs as `dev`; s6 remains PID 1 and continues to supervise
+Caddy, code-server, and JupyterLab. The example below does not publish a host
+port or require privileged mode.
 
 ## Coder template example
 
@@ -161,7 +161,7 @@ resource "docker_image" "workspace" {
 }
 ```
 
-Service defaults come from the image flavor. Use `lab` or `full` for JupyterLab.
+Service defaults come from the image. Use `full` for JupyterLab.
 
 ## Licensing
 

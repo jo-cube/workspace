@@ -13,7 +13,6 @@
 just start
 
 # Specific flavor
-just start polyglot
 just start platform
 just start full
 ```
@@ -34,7 +33,7 @@ JupyterLab opens at `/workspace`, the bind-mounted project root. User state and 
 
 ## Jupyter kernels
 
-`lab` and `full` include Python, Bash, Rust via Evcxr, Go via GoNB, and Kotlin kernels.
+`full` includes Python, Bash, Rust via Evcxr, Go via GoNB, and Kotlin kernels.
 
 GoNB uses the Go compiler, so bare expressions like `2 + 2` are not valid top-level cells. Use a normal `func main`:
 
@@ -91,7 +90,7 @@ PASSWORD='change-me'
 JUPYTER_TOKEN='change-me-too'
 ```
 
-Service defaults come from the image flavor. Use `lab` or `full` for JupyterLab.
+Service defaults come from the image. Use `full` for JupyterLab.
 Set `PASSWORD` or `HASHED_PASSWORD` for code-server auth. Set `JUPYTER_TOKEN` for JupyterLab auth. Caddy is the path router.
 Leave those values unset for an unauthenticated local container on a trusted loopback-only setup.
 Compose binds to loopback by default. Set `WORKSPACE_BIND_ADDRESS=0.0.0.0` only
