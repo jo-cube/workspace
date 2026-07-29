@@ -16,6 +16,10 @@ variable "CACHE_IMAGE" {
   default = "workspace-cache"
 }
 
+variable "CACHE_FROM" {
+  default = "false"
+}
+
 variable "PUBLISH" {
   default = "false"
 }
@@ -31,7 +35,7 @@ group "all" {
 target "base-core" {
   dockerfile = "docker/base.Dockerfile"
   context    = "."
-  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core"] : []
+  cache-from = CACHE_FROM == "true" || PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core"] : []
   cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core,mode=max"] : []
 }
 
@@ -40,7 +44,7 @@ target "code-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:base-core" }
   contexts   = { "${REGISTRY}/workspace:base-core" = "target:base-core" }
-  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core"] : []
+  cache-from = CACHE_FROM == "true" || PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core"] : []
   cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:code-core,mode=max"] : []
 }
 
@@ -58,7 +62,7 @@ target "polyglot-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
   contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
-  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core"] : []
+  cache-from = CACHE_FROM == "true" || PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core"] : []
   cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core,mode=max"] : []
 }
 
@@ -67,7 +71,7 @@ target "platform-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:polyglot-core" }
   contexts   = { "${REGISTRY}/workspace:polyglot-core" = "target:polyglot-core" }
-  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core"] : []
+  cache-from = CACHE_FROM == "true" || PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core"] : []
   cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:platform-core,mode=max"] : []
 }
 
@@ -85,7 +89,7 @@ target "full-core" {
   context    = "."
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:platform-core" }
   contexts   = { "${REGISTRY}/workspace:platform-core" = "target:platform-core" }
-  cache-from = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core"] : []
+  cache-from = CACHE_FROM == "true" || PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core"] : []
   cache-to   = PUBLISH == "true" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:full-core,mode=max"] : []
 }
 

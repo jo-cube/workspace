@@ -51,6 +51,13 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: read
+    env:
+      CACHE_FROM: "true"
+      CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+      CACHE_IMAGE: workspace-cache
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -58,5 +65,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Smoke-test supported images
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke-test code image
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/heads/patch/'))
+        run: ./scripts/smoke-test.sh code
+
+      - name: Smoke-test all supported images
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         run: ./scripts/smoke-test.sh all

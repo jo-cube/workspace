@@ -82,8 +82,8 @@ the `code` flavor.
 
 ## Notes
 
-- Workflows use `GITHUB_TOKEN` with `packages: write`; no personal access token
-  should be needed for this repository.
+- Workflows use `GITHUB_TOKEN` with `packages: read` for smoke cache imports and
+  `packages: write` for publishing; no personal access token should be needed.
 - Build cache is published separately from release images:
   `ghcr.io/jo-cube/workspace-cache`.
 - Keep `workspace` public if the images should be anonymously pullable. The

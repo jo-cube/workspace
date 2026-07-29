@@ -116,6 +116,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Smoke-test release images
+        env:
+          CACHE_FROM: "true"
+          CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+          CACHE_IMAGE: workspace-cache
         run: ./scripts/smoke-test.sh code platform full
 
       - name: Scan release images
