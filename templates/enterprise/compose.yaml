@@ -15,7 +15,6 @@ services:
       - ./secrets:/secrets:ro
     env_file: ./config/proxy.env
     environment:
-      - ENABLE_CADDY=true
       - WORKSPACE_CONFIG_FILE
       - PASSWORD
       - HASHED_PASSWORD

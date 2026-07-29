@@ -14,7 +14,6 @@ services:
       - cache:/cache
       - ./runtime-config:/etc/workspace:ro
     environment:
-      - ENABLE_CADDY=true
       - WORKSPACE_CONFIG_FILE
       - PASSWORD
       - HASHED_PASSWORD

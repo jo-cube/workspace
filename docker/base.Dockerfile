@@ -94,10 +94,8 @@ RUN mkdir -p /workspace /cache /secrets /opt/uv-tools/bin /opt/sdkman \
 
 ENV S6_KEEP_ENV=1 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
-    ENABLE_CADDY=true \
     ENABLE_CODE=false \
-    ENABLE_JUPYTER=false \
-    WORKSPACE_PORT=8080
+    ENABLE_JUPYTER=false
 
 EXPOSE 8080
 WORKDIR /workspace

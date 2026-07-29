@@ -1,0 +1,33 @@
+{
+	admin off
+}
+
+:8080 {
+	handle /health {
+		header Content-Type text/plain
+		respond "OK"
+	}
+
+	handle /status {
+		header Content-Type application/json
+		respond `{"status":"running"}`
+	}
+
+	@lab path /lab /lab/*
+	handle @lab {
+		reverse_proxy 127.0.0.1:8888
+	}
+
+	handle /code {
+		redir /code/ 302
+	}
+
+	handle_path /code/* {
+		reverse_proxy 127.0.0.1:8081
+	}
+
+	handle {
+		root * /srv
+		file_server
+	}
+}
