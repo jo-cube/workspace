@@ -12,7 +12,7 @@ default:
 build target=flavor:
     docker buildx bake {{ target }}
 
-# Build all image flavors
+# Build all supported images
 build-all:
     docker buildx bake all
 

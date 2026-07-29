@@ -1,8 +1,4 @@
-// docker-bake.hcl
-// Build the workspace image family with: docker buildx bake <target>
-//
-// Runtime assets use a final overlay so s6/Caddy/dotfile edits rebuild quickly
-// Python/JVM/Rust/Node/platform tool installs.
+// Build the supported workspace images with: docker buildx bake <target>
 
 variable "REGISTRY" {
   default = "ghcr.io/jo-cube"
@@ -25,11 +21,11 @@ variable "CI" {
 }
 
 group "default" {
-  targets = ["base", "code"]
+  targets = ["code"]
 }
 
 group "all" {
-  targets = ["base", "code", "python", "jvm", "polyglot", "lab", "platform", "full"]
+  targets = ["code", "platform", "full"]
 }
 
 target "base-core" {
@@ -37,15 +33,6 @@ target "base-core" {
   context    = "."
   cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core"] : []
   cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:base-core,mode=max"] : []
-}
-
-target "base" {
-  dockerfile = "docker/runtime.Dockerfile"
-  context    = "."
-  tags       = ["${REGISTRY}/workspace:base-${TAG}", "${REGISTRY}/workspace:base"]
-  args       = { BASE_IMAGE = "${REGISTRY}/workspace:base-core" }
-  contexts   = { "${REGISTRY}/workspace:base-core" = "target:base-core" }
-  output     = CI == "" ? ["type=docker"] : []
 }
 
 target "code-core" {
@@ -66,42 +53,6 @@ target "code" {
   output     = CI == "" ? ["type=docker"] : []
 }
 
-target "python-core" {
-  dockerfile = "docker/python.Dockerfile"
-  context    = "."
-  args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
-  contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:python-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:python-core,mode=max"] : []
-}
-
-target "python" {
-  dockerfile = "docker/runtime.Dockerfile"
-  context    = "."
-  tags       = ["${REGISTRY}/workspace:python-${TAG}", "${REGISTRY}/workspace:python"]
-  args       = { BASE_IMAGE = "${REGISTRY}/workspace:python-core" }
-  contexts   = { "${REGISTRY}/workspace:python-core" = "target:python-core" }
-  output     = CI == "" ? ["type=docker"] : []
-}
-
-target "jvm-core" {
-  dockerfile = "docker/jvm.Dockerfile"
-  context    = "."
-  args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
-  contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:jvm-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:jvm-core,mode=max"] : []
-}
-
-target "jvm" {
-  dockerfile = "docker/runtime.Dockerfile"
-  context    = "."
-  tags       = ["${REGISTRY}/workspace:jvm-${TAG}", "${REGISTRY}/workspace:jvm"]
-  args       = { BASE_IMAGE = "${REGISTRY}/workspace:jvm-core" }
-  contexts   = { "${REGISTRY}/workspace:jvm-core" = "target:jvm-core" }
-  output     = CI == "" ? ["type=docker"] : []
-}
-
 target "polyglot-core" {
   dockerfile = "docker/polyglot.Dockerfile"
   context    = "."
@@ -109,33 +60,6 @@ target "polyglot-core" {
   contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
   cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core"] : []
   cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:polyglot-core,mode=max"] : []
-}
-
-target "polyglot" {
-  dockerfile = "docker/runtime.Dockerfile"
-  context    = "."
-  tags       = ["${REGISTRY}/workspace:polyglot-${TAG}", "${REGISTRY}/workspace:polyglot"]
-  args       = { BASE_IMAGE = "${REGISTRY}/workspace:polyglot-core" }
-  contexts   = { "${REGISTRY}/workspace:polyglot-core" = "target:polyglot-core" }
-  output     = CI == "" ? ["type=docker"] : []
-}
-
-target "lab-core" {
-  dockerfile = "docker/lab.Dockerfile"
-  context    = "."
-  args       = { BASE_IMAGE = "${REGISTRY}/workspace:polyglot-core" }
-  contexts   = { "${REGISTRY}/workspace:polyglot-core" = "target:polyglot-core" }
-  cache-from = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:lab-core"] : []
-  cache-to   = CI != "" ? ["type=registry,ref=${CACHE_REGISTRY}/${CACHE_IMAGE}:lab-core,mode=max"] : []
-}
-
-target "lab" {
-  dockerfile = "docker/runtime.Dockerfile"
-  context    = "."
-  tags       = ["${REGISTRY}/workspace:lab-${TAG}", "${REGISTRY}/workspace:lab"]
-  args       = { BASE_IMAGE = "${REGISTRY}/workspace:lab-core" }
-  contexts   = { "${REGISTRY}/workspace:lab-core" = "target:lab-core" }
-  output     = CI == "" ? ["type=docker"] : []
 }
 
 target "platform-core" {

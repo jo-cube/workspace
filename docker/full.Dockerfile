@@ -2,7 +2,7 @@
 # full.Dockerfile — platform + lab + debug + security tools
 # All binary downloads are multi-arch (amd64/arm64).
 
-ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:platform
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
@@ -37,8 +37,7 @@ RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
   && /opt/uv-tools/jupyterlab/bin/python -c 'import json,pathlib,sys; p=pathlib.Path(sys.prefix)/"share/jupyter/kernels/kotlin/kernel.json"; data=json.loads(p.read_text()); data["argv"][0]=sys.executable; data["metadata"]["jar_path_detect_command"][0]=sys.executable; p.write_text(json.dumps(data, indent=2)+"\n")' \
   && rustup component add rust-src \
   && cargo install --locked evcxr_jupyter \
-  && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install \
-  && uv tool update-shell
+  && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install
 
 USER root
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \

@@ -2,7 +2,7 @@
 # platform.Dockerfile — polyglot + Kubernetes/cloud/API/DB tooling
 # All binary downloads are multi-arch (amd64/arm64).
 
-ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:polyglot
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
@@ -73,15 +73,17 @@ RUN set -eux; \
 
 # kubectl + helm
 RUN set -eux; \
-    curl -fsSLo /usr/local/bin/kubectl \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --remove-on-error \
+      -o /usr/local/bin/kubectl \
       "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl"; \
     chmod +x /usr/local/bin/kubectl; \
-    curl -fsSL \
-      "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
-      | tar -xz -C /tmp; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --remove-on-error \
+      -o /tmp/helm.tar.gz \
+      "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz"; \
+    tar -xzf /tmp/helm.tar.gz -C /tmp; \
     mv "/tmp/linux-${TARGETARCH}/helm" /usr/local/bin/helm; \
     chmod +x /usr/local/bin/helm; \
-    rm -rf "/tmp/linux-${TARGETARCH}"
+    rm -rf /tmp/helm.tar.gz "/tmp/linux-${TARGETARCH}"
 
 # k9s + stern + kubectx/kubens
 RUN set -eux; \
@@ -144,9 +146,3 @@ RUN curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/
     -o /usr/local/bin/yq \
     && chmod +x /usr/local/bin/yq \
     && yq --version
-
-# httpie (Python — arch-independent)
-USER dev
-RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
-    uv tool install httpie
-USER root
