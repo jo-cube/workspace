@@ -1,122 +1,65 @@
-# Image flavors
+# Images
 
-## Choosing a flavor
+## Supported images
 
-| Use case | Flavor |
-|----------|--------|
-| Minimal container, no IDE | `base` |
-| General development with browser IDE | `code` |
-| Python-focused development | `python` |
-| Java/Kotlin/Spring development | `jvm` |
-| Multi-language projects | `polyglot` |
-| Data science / notebooks | `lab` |
-| Infrastructure / DevOps / platform work | `platform` |
-| Everything available | `full` |
+| Use case | Image |
+|----------|-------|
+| Browser IDE and core tools | `code` |
+| Multi-language and platform development | `platform` |
+| Notebooks, debugging, and security work | `full` |
 
-## Flavor details
+### code
 
-### base (`docker/base.Dockerfile`)
+Includes:
 
-Ubuntu 26.04 LTS foundation. Includes:
+- Ubuntu 26.04 LTS
 - Non-root `dev` user with sudo
-- Core CLI tools (git, curl, jq, ripgrep, fzf, eza, bat, etc.)
-- Neovim, tmux, starship prompt
-- Caddy reverse proxy with workspace index page
-- s6-overlay service supervisor
-- Health endpoints via Caddy
+- Core shell, editor, Git, network, and productivity tools
+- Caddy reverse proxy and s6-overlay
+- code-server at `/code/`
 
-### code (`docker/code.Dockerfile`)
-
-Everything in `base` plus:
-- code-server (VS Code in browser)
-- Accessible at `http://localhost:8080/code/`
-
-### python (`docker/python.Dockerfile`)
+### platform
 
 Everything in `code` plus:
-- uv (fast Python package manager)
-- Python 3.14
-- ruff (linter/formatter)
-- mypy (type checker)
 
-### jvm (`docker/jvm.Dockerfile`)
-
-Everything in `code` plus:
-- Java 25 (Temurin)
-- Kotlin (latest)
-- Gradle (latest)
-- Managed via SDKMAN
-
-### polyglot (`docker/polyglot.Dockerfile`)
-
-Everything in `code` plus all runtimes:
 - Python 3.14 via uv
-- Java 25 + Kotlin + Gradle
+- Java 25, Kotlin, and Gradle via SDKMAN
 - Go 1.26
-- Rust (stable)
-- C linker for Cargo and cgo builds
-- Node.js 24 (LTS) via fnm
+- Rust stable
+- Node.js 24
+- Kubernetes tools: kubectl, Helm, k9s, stern, kubectx, kubens
+- HTTP/gRPC/WebSocket clients: curl, xh, grpcurl, websocat
+- PostgreSQL, Redis, DuckDB, Kafka, S3, and RocksDB clients
+- Git and stream-processing helpers
 
-### lab (`docker/lab.Dockerfile`)
+### full
 
-Everything in `polyglot` plus:
-- JupyterLab, enabled by the flavor
-- Jupyter kernels for Python, Bash, Rust via Evcxr, Go via GoNB, and Kotlin
+Everything in `platform` plus:
 
-JupyterLab opens at `/workspace`. GoNB cells are compiled Go; use a normal
-`func main` or GoNB's `%%` shortcut for statement cells.
-
-### platform (`docker/platform.Dockerfile`)
-
-Everything in `polyglot` plus:
-- kubectl, helm, k9s, stern, kubectx/kubens
-- httpie, xh, grpcurl, gron
-- PostgreSQL client, Redis client, DuckDB, Kafka `kcat`, websocat, Miller, rsync
-- s5cmd and MinIO mc for S3-compatible object storage
-- RocksDB admin tools (`ldb`, `sst_dump`)
-- datamash, pv, GNU parallel, and GNU awk for UNIX stream processing
-- gh CLI, lazygit, delta
-- just, yq
-
-### full (`docker/full.Dockerfile`)
-
-Everything: platform + lab + debug + security tools:
-- JupyterLab with Python, Bash, Rust via Evcxr, Go via GoNB, and Kotlin kernels
+- JupyterLab at `/lab`
+- Python, Bash, Rust, Go, and Kotlin kernels
 - gdb, strace, ltrace, valgrind, tcpdump
-- trivy, gitleaks
-- hyperfine
-- sqlite3
+- Trivy and Gitleaks
+- hyperfine and sqlite3
 
-## Building specific flavors
+## Internal build layers
+
+The Bake graph uses `base-core`, `code-core`, `polyglot-core`,
+`platform-core`, and `full-core` to preserve expensive build cache. These are
+implementation details and are not published or supported as runtime images.
+
+## Build and run
 
 ```bash
-# Single flavor (builds dependencies automatically)
+just build code
 just build platform
-
-# Via bake directly
-docker buildx bake polyglot
-
-# Multiple flavors
-docker buildx bake python jvm platform
-
-# All flavors
+just build full
 just build-all
+
+just start code
+just start platform
+just start full
 ```
 
-## Running specific flavors
-
-```bash
-# Start a specific flavor
-just start polyglot
-
-# Or via compose after building the image
-FLAVOR=platform docker compose up -d --no-build
-```
-
-## Extending
-
-To add a new flavor:
-
-1. Create `docker/newflavor.Dockerfile` with `ARG BASE_IMAGE=...` and `FROM ${BASE_IMAGE}`
-2. Add a `newflavor-core` target and a public `newflavor` runtime overlay target in `docker-bake.hcl`
-3. Document the flavor in the README and image guide
+Add another supported image only when it serves a distinct user group and can
+be included in CI, smoke tests, releases, and documentation.

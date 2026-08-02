@@ -14,7 +14,7 @@ just shell
 # Rebuild and start
 just up
 
-# Build with a different base
+# Build with a different supported base
 BASE_IMAGE=ghcr.io/jo-cube/workspace:full just build
 ```
 
@@ -25,9 +25,9 @@ BASE_IMAGE=ghcr.io/jo-cube/workspace:full just build
 | CA certificates | `config/ca-certificates/*.crt` → system trust store |
 | Proxy config | `config/proxy.env` → build args, compose env, login shells |
 | Git defaults | `config/git/gitconfig` → `/etc/gitconfig` |
-| Homebrew | Optional via `ENABLE_HOMEBREW=true` build arg |
-| Enterprise tools | `config/Brewfile` or small Dockerfile additions |
+| Enterprise tools | Small Dockerfile additions |
 | Registry config | `config/registry/` → `/etc/enterprise/registry/` |
+| App runtime config | `runtime-config/` → `/etc/workspace/:ro` (not committed) |
 | Secrets | `./secrets/` → `/secrets/:ro` (not committed) |
 
 ## Commands
@@ -35,7 +35,6 @@ BASE_IMAGE=ghcr.io/jo-cube/workspace:full just build
 ```bash
 just                    # show all commands
 just build              # build enterprise image
-just build-with-homebrew # build with Homebrew enabled
 just start              # start, build only if image is missing
 just up                 # rebuild + start
 just down               # stop
@@ -51,8 +50,16 @@ just clean              # remove volumes
 2. Edit `config/proxy.env` with non-secret proxy URLs.
 3. Edit `config/git/gitconfig` for internal GitHub or enterprise Git hosting.
 4. Copy registry examples in `config/registry/` to real filenames and edit endpoints.
-5. Add internal tools to `config/Brewfile` or a small Dockerfile install step.
-6. Put runtime secrets in `secrets/` or your platform secret store, never in images.
+5. Add internal tools with the smallest practical Dockerfile install step.
+6. Put code-server or Jupyter credentials in `runtime-config/config.env`; use
+   `secrets/` or your platform secret store for file-based secrets. Neither
+   directory is sent in the Docker build context.
+
+Compose publishes port 8080 to host loopback by default. Set
+`WORKSPACE_BIND_ADDRESS=0.0.0.0` only behind an authenticated workspace proxy
+or after adding app authentication and an appropriate network/TLS boundary.
+The `just` start commands make the workspace bind root writable for `dev`; use
+a deployment-specific UID or mount policy on a multi-user host.
 
 ## Documentation
 

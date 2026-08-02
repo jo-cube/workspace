@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -6,191 +6,102 @@
   <title>Workspace</title>
   <style>
     :root {
+      color-scheme: dark;
       --bg: #0d1117;
       --surface: #161b22;
       --border: #30363d;
       --text: #c9d1d9;
       --muted: #8b949e;
       --accent: #58a6ff;
-      --green: #3fb950;
-      --yellow: #d29922;
-      --red: #f85149;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    * { box-sizing: border-box; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, monospace;
-      background: var(--bg);
-      color: var(--text);
+      margin: 0;
       min-height: 100vh;
       padding: 2rem;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
     }
-    .container { max-width: 720px; margin: 0 auto; }
-    header { margin-bottom: 2rem; }
-    h1 { color: var(--accent); font-size: 1.4rem; font-weight: 600; }
-    .meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.25rem; }
 
-    .section { margin-bottom: 2rem; }
-    .section-title {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    main {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 0.25rem;
+      color: var(--accent);
+      font-size: 1.5rem;
+    }
+
+    p {
+      margin: 0;
       color: var(--muted);
-      margin-bottom: 0.75rem;
     }
 
-    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-    @media (max-width: 560px) { .card-grid { grid-template-columns: 1fr; } }
+    .services {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0.75rem;
+      margin: 2rem 0;
+    }
 
     .card {
-      background: var(--surface);
+      display: block;
+      padding: 1rem 1.25rem;
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 1rem 1.25rem;
-      text-decoration: none;
-      color: var(--text);
-      transition: border-color 0.15s, transform 0.1s;
-      display: block;
-    }
-    .card:hover { border-color: var(--accent); transform: translateY(-1px); }
-    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
-    .card-title { font-weight: 500; font-size: 0.95rem; }
-    .card-path { color: var(--muted); font-size: 0.8rem; font-family: monospace; }
-    .card-desc { color: var(--muted); font-size: 0.8rem; margin-top: 0.35rem; }
-
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .dot.green { background: var(--green); }
-    .dot.yellow { background: var(--yellow); }
-    .dot.red { background: var(--red); }
-    .dot.off { background: var(--border); }
-
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 0.5rem;
-    }
-    .info-item {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.75rem 1rem;
-    }
-    .info-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
-    .info-value { font-size: 0.9rem; margin-top: 0.2rem; }
-
-    .api-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-    .api-links a {
-      color: var(--muted);
-      font-size: 0.8rem;
+      color: var(--text);
       text-decoration: none;
-      padding: 0.4rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      font-family: monospace;
-      transition: border-color 0.15s, color 0.15s;
     }
-    .api-links a:hover { border-color: var(--accent); color: var(--accent); }
+
+    .card:hover,
+    .card:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+
+    .card span,
+    footer {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    footer a {
+      margin-right: 1rem;
+      color: var(--accent);
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>Workspace</h1>
-      <p class="meta" id="meta">loading...</p>
-    </header>
+  <main>
+    <h1>Workspace</h1>
+    <p>Development tools in your browser.</p>
 
-    <div class="section">
-      <div class="section-title">Services</div>
-      <div class="card-grid" id="services">
-        <span style="color:var(--muted);font-size:0.85rem">Connecting...</span>
-      </div>
-    </div>
+    <nav class="services" aria-label="Workspace services">
+      <a class="card" href="/code/">
+        <strong>Code Server</strong>
+        <span>VS Code in your browser</span>
+      </a>
+      <a class="card" href="/lab">
+        <strong>JupyterLab</strong>
+        <span>Interactive notebooks · full image</span>
+      </a>
+    </nav>
 
-    <div class="section">
-      <div class="section-title">System</div>
-      <div class="info-grid" id="info"></div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">API</div>
-      <div class="api-links">
-        <a href="/health">/health</a>
-        <a href="/ready">/ready</a>
-        <a href="/status">/status</a>
-        <a href="/status/services">/status/services</a>
-        <a href="/status/tools">/status/tools</a>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const services = [
-      { name: 'Code Server', key: 'code-server', path: '/code/', desc: 'VS Code in your browser' },
-      { name: 'JupyterLab', key: 'jupyter', path: '/lab', desc: 'Interactive notebooks' },
-      { name: 'Status API', key: 'workspace-status', path: '/status', desc: 'Health & introspection' },
-      { name: 'Caddy Proxy', key: 'caddy', path: null, desc: 'Reverse proxy (this page)' },
-    ];
-
-    function escapeHTML(value) {
-      return String(value ?? '').replace(/[&<>"']/g, ch => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      }[ch]));
-    }
-
-    async function refresh() {
-      try {
-        const res = await fetch('/status');
-        const data = await res.json();
-
-        document.getElementById('meta').textContent =
-          `${data.hostname} \u00b7 up ${data.uptime} \u00b7 ${data.arch}`;
-
-        const svcMap = {};
-        (data.services || []).forEach(s => { svcMap[s.name] = s; });
-
-        const grid = document.getElementById('services');
-        grid.innerHTML = services.map(svc => {
-          const live = svcMap[svc.key];
-          const running = live ? live.running : false;
-          const dotClass = running ? 'green' : 'off';
-
-          const tag = svc.path ? 'a' : 'div';
-          const href = svc.path ? ` href="${svc.path}"` : '';
-          return `<${tag} class="card"${href}>
-            <div class="card-header">
-              <span class="dot ${dotClass}"></span>
-              <span class="card-title">${escapeHTML(svc.name)}</span>
-            </div>
-            ${svc.path ? `<div class="card-path">${escapeHTML(svc.path)}</div>` : ''}
-            <div class="card-desc">${escapeHTML(svc.desc)}</div>
-          </${tag}>`;
-        }).join('');
-
-        const info = document.getElementById('info');
-        const items = [
-          { label: 'Hostname', value: data.hostname },
-          { label: 'Uptime', value: data.uptime },
-          { label: 'Arch', value: data.arch },
-          { label: 'User', value: data.user || 'dev' },
-        ];
-        info.innerHTML = items.map(i =>
-          `<div class="info-item"><div class="info-label">${escapeHTML(i.label)}</div><div class="info-value">${escapeHTML(i.value)}</div></div>`
-        ).join('');
-      } catch (e) {
-        document.getElementById('services').innerHTML =
-          '<span style="color:var(--red)">Could not reach status service</span>';
-      }
-    }
-
-    refresh();
-    setInterval(refresh, 5000);
-  </script>
+    <footer>
+      <a href="/health">Health</a>
+      <a href="/status">Status</a>
+    </footer>
+  </main>
 </body>
 </html>

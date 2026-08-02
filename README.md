@@ -6,66 +6,56 @@ Containerized development workspace images and an enterprise overlay template.
 
 | Directory | Purpose |
 |-----------|---------|
-| [`docker/`](docker/) | Per-flavor Dockerfiles for the generic workspace image family. |
+| [`docker/`](docker/) | Internal image layers and the shared runtime overlay. |
 | [`config/`](config/) | Runtime Caddy, s6, shell, dotfile, and dashboard config. |
-| [`services/`](services/) | Small helper services built into the runtime overlay. |
 | [`scripts/`](scripts/) | Local/runtime validation helpers. |
-| [`docs/`](docs/) | Operational docs for the generic workspace images. |
-| [`templates/enterprise/`](templates/enterprise/) | Enterprise overlay template for CA, proxy, registry, Git, and internal-tool adaptation. |
-
-The generic image flavors decide which services are available and enabled.
-Compose only selects the image, port, volumes, and runtime config/secrets.
+| [`docs/`](docs/) | Operational documentation. |
+| [`templates/enterprise/`](templates/enterprise/) | Enterprise CA, proxy, registry, Git, and internal-tool overlay. |
 
 ## Quick start
 
 ```bash
-# Start the default flavor, building only if the local image is missing.
-just start
-
-# Or choose a flavor.
-just start polyglot
+just start           # code
 just start platform
 just start full
 ```
 
+`just start` builds only when the selected local image is missing. Use
+`just up <flavor>` when you explicitly want to rebuild. Builds go through
+`docker buildx bake`, not `docker compose up --build`.
+
 Open:
 
-- `http://localhost:8080` - workspace dashboard
-- `http://localhost:8080/code/` - code-server
-- `http://localhost:8080/lab` - JupyterLab in `lab` and `full`
+- `http://localhost:8080` — workspace links
+- `http://localhost:8080/code/` — code-server
+- `http://localhost:8080/lab` — JupyterLab in `full`
+- `http://localhost:8080/health` — health check
+- `http://localhost:8080/status` — compact status
 
-Use `just up <flavor>` when you explicitly want to rebuild and start.
-Do not use `docker compose up --build`; builds go through `docker buildx bake`.
+## Supported images
 
-## Image flavors
+| Image | Contents |
+|-------|----------|
+| `code` | Ubuntu 26.04, core CLI tools, Caddy, s6-overlay, and code-server |
+| `platform` | `code` plus Python 3.14, Java 25, Kotlin, Gradle, Go, Rust, Node.js, and platform tools |
+| `full` | `platform` plus JupyterLab, multi-language kernels, debugging, and security tools |
 
-```text
-base        Ubuntu 26.04 + core tools + Caddy + s6-overlay
-code        + code-server
-python      + uv, Python 3.14, ruff, mypy
-jvm         + Java 25, Kotlin, Gradle
-polyglot    + Python + JVM + Go + Rust + Node.js
-lab         + JupyterLab
-platform    + kubectl, helm, k9s, DB/Kafka/WS clients, API tools
-full        platform + lab + debug + security tools
-```
+The `*-core` Bake targets are internal build layers, not supported runtime
+images.
 
-`lab` and `full` include JupyterLab kernels for Python, Bash, Rust via Evcxr,
-Go via GoNB, and Kotlin.
+`full` includes JupyterLab kernels for Python, Bash, Rust via Evcxr, Go via
+GoNB, and Kotlin.
 
-`platform` and `full` include practical infrastructure helpers: Kubernetes
-tools, HTTP/gRPC/WebSocket clients, PostgreSQL and Redis clients, DuckDB,
-Kafka `kcat`, S3-compatible object storage clients (`s5cmd`, `mc`), RocksDB
-admin tools, and stream-processing tools.
-
-`/workspace` is the bind-mounted project root.
-`/home/dev` is user state: shell history, config, and caches.
+`/workspace` is the bind-mounted project root. `/home/dev` preserves user
+state such as history and configuration. Image-owned runtimes and tools live
+outside `/home/dev`, so switching images or reusing the home volume does not
+hide them.
 
 ## Optional auth
 
-code-server and JupyterLab can run without auth for local-only use. To enable
-app-level password/token protection, set environment variables in `.env` or in
-`runtime-config/config.env`:
+Compose binds to `127.0.0.1` by default, so code-server and JupyterLab can run
+without app-level auth for trusted single-user local use. To enable protection,
+set variables in `.env` or `runtime-config/config.env`:
 
 ```bash
 PASSWORD='change-me'
@@ -73,8 +63,15 @@ JUPYTER_TOKEN='change-me-too'
 ```
 
 Use `HASHED_PASSWORD` instead of `PASSWORD` when you already have a code-server
-password hash. Caddy only routes traffic; code-server and JupyterLab own their
-login behavior.
+password hash. Caddy only routes traffic; code-server and JupyterLab own login
+behavior.
+
+`runtime-config/` is mounted read-only at `/etc/workspace` and excluded from
+Git and the Docker build context.
+
+To listen beyond loopback, set `WORKSPACE_BIND_ADDRESS=0.0.0.0` only behind an
+authenticated workspace proxy such as Coder, or after configuring app
+credentials and an appropriate network/TLS boundary.
 
 ## Enterprise overlay
 
@@ -83,22 +80,20 @@ cd templates/enterprise
 just start
 ```
 
-The enterprise module builds from a generic image and adds non-secret
-enterprise configuration. Put real values in the clearly named files under
-`templates/enterprise/config/`; keep secrets in `templates/enterprise/secrets/`,
-environment variables, CI secrets, or platform secret stores.
+The enterprise module adds non-secret CA, proxy, Git, registry, and internal
+tool configuration to `platform` by default. Keep secrets in
+`templates/enterprise/secrets/`, environment variables, CI secrets, or a
+platform secret store.
 
 ## Operational rules
 
 - Prefer `just` and `docker buildx bake`.
-- Use `just start <flavor>` to start from a local image, building only if missing.
-- Use `just up <flavor>` to rebuild explicitly.
-- Keep runtime config in the final runtime overlay so Caddy, s6, dotfiles, and config edits rebuild quickly.
-- Do not prune Docker build cache casually. It is useful state.
-- Keep build logs gated: redirect noisy logs to `/tmp/...` and show only a short tail on failure.
+- Keep managed service and shell config in the final runtime overlay.
+- Keep credentials in the read-only `runtime-config/` mount.
+- Treat `/home/dev` as persistent user state, not an image-owned tool location.
+- Keep build logs gated and show only a short tail on failure.
 - Add tests only when they freeze useful behavior or catch real regressions.
-- Clean up test containers and volumes; leave needed images and build cache in place.
-- Avoid bloat. Prefer distro packages, static binaries, standard tooling, and deletion over custom machinery.
+- Clean test containers and volumes; retain useful images and build cache.
 
 ## Requirements
 
@@ -108,8 +103,9 @@ environment variables, CI secrets, or platform secret stores.
 
 ## More docs
 
-- [Image flavors](docs/images.md)
+- [Images](docs/images.md)
 - [Local development](docs/local-development.md)
 - [Tool manifest](docs/tools.md)
 - [Architecture](docs/architecture.md)
+- [Coder integration](docs/coder.md)
 - [Releasing](docs/releasing.md)

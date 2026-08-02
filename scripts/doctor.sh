@@ -30,7 +30,7 @@ check_service() {
   if curl -fsS --max-time 3 "$url" &>/dev/null; then
     pass "$name responding"
   else
-    warn "$name not responding (may not be enabled)"
+    fail "$name not responding"
   fi
 }
 
@@ -45,7 +45,7 @@ done
 echo ""
 echo "--- Services ---"
 check_cmd caddy
-check_cmd code-server
+[ "${ENABLE_CODE:-false}" = "true" ] && check_cmd code-server
 
 echo ""
 echo "--- Runtime (if present) ---"
@@ -80,15 +80,17 @@ done
 echo ""
 echo "--- Network ---"
 check_service "http://127.0.0.1:8080/health" "Caddy proxy"
-check_service "http://127.0.0.1:8081" "code-server"
+check_service "http://127.0.0.1:8080/status" "status endpoint"
+[ "${ENABLE_CODE:-false}" = "true" ] && check_service "http://127.0.0.1:8081" "code-server"
 [ "${ENABLE_JUPYTER:-false}" = "true" ] && check_service "http://127.0.0.1:8888/lab" "JupyterLab"
 
 echo ""
 echo "--- Filesystem ---"
 [ -d /workspace ] && pass "/workspace exists" || fail "/workspace missing"
 [ -d /cache ] && pass "/cache exists" || fail "/cache missing"
-[ -w /workspace ] && pass "/workspace writable" || fail "/workspace not writable"
-[ -w /home/dev ] && pass "/home/dev writable" || fail "/home/dev not writable"
+/command/s6-setuidgid dev test -w /workspace && pass "/workspace writable by dev" || fail "/workspace not writable by dev"
+/command/s6-setuidgid dev test -w /home/dev && pass "/home/dev writable by dev" || fail "/home/dev not writable by dev"
+/command/s6-setuidgid dev test -w /cache && pass "/cache writable by dev" || fail "/cache not writable by dev"
 
 echo ""
 echo "=== Results: ${PASS} passed, ${FAIL} failed, ${WARN} warnings ==="

@@ -10,22 +10,26 @@ default:
 
 # Build a specific flavor (and its dependencies)
 build target=flavor:
-    docker buildx bake {{target}}
+    docker buildx bake {{ target }}
 
-# Build all image flavors
+# Build all supported images
 build-all:
     docker buildx bake all
 
 # Rebuild and start a specific flavor
 up target=flavor:
-    just build {{target}}
-    REGISTRY={{registry}} FLAVOR={{target}} docker compose up -d --no-build
+    just build {{ target }}
+    mkdir -p workspace runtime-config
+    chmod 0777 workspace
+    REGISTRY={{ registry }} FLAVOR={{ target }} docker compose up -d --no-build
 
 # Start a flavor, building only when the local runtime image is missing
 start target=flavor:
-    @image="{{registry}}/workspace:{{target}}"; \
-    docker image inspect "$image" >/dev/null 2>&1 || just build {{target}}; \
-    REGISTRY={{registry}} FLAVOR={{target}} docker compose up -d --no-build
+    @image="{{ registry }}/workspace:{{ target }}"; \
+    docker image inspect "$image" >/dev/null 2>&1 || just build {{ target }}; \
+    mkdir -p workspace runtime-config; \
+    chmod 0777 workspace; \
+    REGISTRY={{ registry }} FLAVOR={{ target }} docker compose up -d --no-build
 
 # Stop the running workspace
 down:
@@ -45,15 +49,15 @@ status:
 
 # Run health checks inside the container
 doctor:
-    docker compose exec workspace bash /scripts/doctor.sh 2>/dev/null || ./scripts/doctor.sh
+    docker compose exec workspace bash /scripts/doctor.sh
 
 # Push a specific flavor to registry
 push target=flavor:
-    REGISTRY={{registry}} TAG={{tag}} docker buildx bake {{target}} --push
+    REGISTRY={{ registry }} TAG={{ tag }} docker buildx bake {{ target }} --push
 
 # Push all images to registry
 push-all:
-    REGISTRY={{registry}} TAG={{tag}} docker buildx bake all --push
+    REGISTRY={{ registry }} TAG={{ tag }} docker buildx bake all --push
 
 # Reset runtime data, keep build cache
 reset:
@@ -73,4 +77,4 @@ clean: reset clean-build-cache
 
 # Quick health check from host
 health:
-    @curl -sf http://localhost:${WORKSPACE_PORT:-8080}/health && echo " workspace healthy" || echo " workspace not responding"
+    @curl -sf http://localhost:${WORKSPACE_PORT:-8080}/health >/dev/null && echo "workspace healthy"
