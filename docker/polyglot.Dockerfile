@@ -4,6 +4,8 @@ FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
 ARG GO_VERSION=1.26.4
+ARG NODE_VERSION=24.18.0
+ARG NPM_VERSION=11.18.0
 
 ENV UV_TOOL_DIR=/opt/uv-tools \
     UV_TOOL_BIN_DIR=/opt/uv-tools/bin \
@@ -63,7 +65,11 @@ RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-to
 
 # Node.js via fnm
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir /opt/fnm --skip-shell \
-    && /opt/fnm/fnm install 24
+    && /opt/fnm/fnm install ${NODE_VERSION} \
+    && PATH="/opt/fnm/aliases/default/bin:${PATH}" npm install --global --no-audit --no-fund npm@${NPM_VERSION} \
+    && test "$(PATH="/opt/fnm/aliases/default/bin:${PATH}" node -p \
+      "require('/opt/fnm/aliases/default/lib/node_modules/npm/node_modules/tar/package.json').version")" = 7.5.19 \
+    && rm -rf /home/dev/.npm
 
 ENV PATH="/usr/local/go/bin:${SDKMAN_DIR}/candidates/java/current/bin:${SDKMAN_DIR}/candidates/kotlin/current/bin:${SDKMAN_DIR}/candidates/gradle/current/bin:${CARGO_HOME}/bin:${FNM_DIR}/aliases/default/bin:${FNM_DIR}:${PATH}" \
     JAVA_HOME="${SDKMAN_DIR}/candidates/java/current"
