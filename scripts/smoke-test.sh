@@ -25,12 +25,11 @@ image_for() {
   printf '%s/workspace:%s' "$IMAGE_REGISTRY" "$1"
 }
 
-build_flavor() {
-  local flavor="$1"
-  header "Building: ${flavor}"
+build_flavors() {
+  header "Building: $*"
   (
     cd "$ROOT_DIR"
-    REGISTRY="$IMAGE_REGISTRY" TAG="$IMAGE_TAG" docker buildx bake "$flavor"
+    REGISTRY="$IMAGE_REGISTRY" TAG="$IMAGE_TAG" docker buildx bake "$@"
   )
 }
 
@@ -88,7 +87,6 @@ wait_for_health() {
 test_code() {
   local img cid
   img="$(image_for code)"
-  build_flavor code
   header "Testing: code"
   for cmd in zsh git caddy code-server jq rg fd bat eza; do
     run_check "$img" "$cmd exists" command -v "$cmd"
@@ -154,7 +152,6 @@ test_code() {
 test_platform() {
   local img
   img="$(image_for platform)"
-  build_flavor platform
   header "Testing: platform"
 
   run_version "$img" "uv" uv --version
@@ -180,7 +177,6 @@ test_platform() {
 test_full() {
   local img cid
   img="$(image_for full)"
-  build_flavor full
   header "Testing: full"
 
   for cmd in jupyter-lab gdb strace tcpdump sqlite3 trivy gitleaks hyperfine; do
@@ -233,8 +229,16 @@ cleanup() {
 
 FLAVORS=("${@:-code}")
 [[ "${FLAVORS[0]}" == all ]] && FLAVORS=(code platform full)
+for flavor in "${FLAVORS[@]}"; do
+  case "$flavor" in
+    code | platform | full) ;;
+    *) echo "Unsupported flavor: $flavor" >&2; exit 1 ;;
+  esac
+done
 
 trap cleanup EXIT
+
+build_flavors "${FLAVORS[@]}"
 
 for flavor in "${FLAVORS[@]}"; do
   case "$flavor" in
