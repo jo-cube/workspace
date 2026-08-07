@@ -122,7 +122,7 @@ jobs:
           REGISTRY: workspace-test
           CACHE_FROM: "true"
           CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
-          CACHE_IMAGE: workspace-cache-ci
+          CACHE_IMAGE: workspace-cache
         run: docker buildx bake full
 
       # full inherits every package in code and platform.

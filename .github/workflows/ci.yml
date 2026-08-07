@@ -56,16 +56,16 @@ jobs:
         run: docker buildx bake --print
 
   smoke:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/heads/patch/')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
       contents: read
-      packages: write
+      packages: read
     env:
       CACHE_FROM: "true"
-      CACHE_TO: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
-      CACHE_IMAGE: workspace-cache-ci
+      CACHE_IMAGE: workspace-cache
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,5 +85,5 @@ jobs:
         run: ./scripts/smoke-test.sh code
 
       - name: Smoke-test all supported images
-        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request'
         run: ./scripts/smoke-test.sh all
