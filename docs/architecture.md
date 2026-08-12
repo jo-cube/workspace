@@ -49,6 +49,8 @@ s6-overlay supervises:
 - JupyterLab on `127.0.0.1:8888` in `full`
 
 Disabled optional services idle without exposing a port.
+Docker health status probes Caddy and every service enabled for the selected
+image, so a failed browser application cannot leave the container healthy.
 
 ## Routes
 

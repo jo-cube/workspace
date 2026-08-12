@@ -40,7 +40,7 @@ access where appropriate.
 
 ```text
 jupyter-lab,
-python3, bash_kernel, evcxr_jupyter, gonb, goimports, gopls,
+bash_kernel, evcxr_jupyter, gonb, goimports, gopls,
 kotlin-jupyter-kernel,
 gdb, strace, ltrace, valgrind, tcpdump, sqlite3,
 trivy, gitleaks, hyperfine

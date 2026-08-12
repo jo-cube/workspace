@@ -29,7 +29,7 @@ Open:
 - `http://localhost:8080` — workspace links
 - `http://localhost:8080/code/` — code-server
 - `http://localhost:8080/lab` — JupyterLab in `full`
-- `http://localhost:8080/health` — health check
+- `http://localhost:8080/health` — proxy liveness
 - `http://localhost:8080/status` — compact status
 
 ## Supported images
