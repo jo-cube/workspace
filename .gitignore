@@ -8,7 +8,7 @@ build-ca-certs/*.pem
 !build-ca-certs/.gitkeep
 
 # Optional mounted runtime config
-runtime-config/*.env
+runtime-config/*
 !runtime-config/.gitkeep
 
 # Secrets (never commit)
