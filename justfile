@@ -35,9 +35,9 @@ start target=flavor:
 down:
     docker compose down
 
-# Open a shell in the running workspace
+# Open a dev shell in the running workspace
 shell:
-    docker compose exec workspace zsh
+    docker compose exec --user dev --env HOME=/home/dev --env USER=dev workspace zsh
 
 # Follow workspace logs
 logs:
