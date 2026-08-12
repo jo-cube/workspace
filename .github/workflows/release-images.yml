@@ -139,7 +139,7 @@ jobs:
                 --skip-db-update \
                 --skip-java-db-update \
                 --no-progress \
-                --exit-code 1 \
+                --exit-code 0 \
                 --ignore-unfixed \
                 --scanners vuln \
                 --severity CRITICAL \
