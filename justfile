@@ -75,6 +75,6 @@ clean-build-cache:
 # Remove runtime data and Docker build cache
 clean: reset clean-build-cache
 
-# Quick health check from host
+# Quick Caddy liveness check from host
 health:
-    @curl -sf http://localhost:${WORKSPACE_PORT:-8080}/health >/dev/null && echo "workspace healthy"
+    @curl --noproxy '*' -sf http://localhost:${WORKSPACE_PORT:-8080}/health >/dev/null && echo "workspace healthy"
