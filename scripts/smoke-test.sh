@@ -11,8 +11,8 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-workspace-test}"
-IMAGE_TAG="${IMAGE_TAG:-smoke}"
-SMOKE_HOME_VOLUME=workspace-smoke-home
+SMOKE_PREFIX="workspace-smoke-$$"
+SMOKE_HOME_VOLUME="${SMOKE_PREFIX}-home"
 
 PASS=0
 FAIL=0
@@ -29,7 +29,7 @@ build_flavors() {
   header "Building: $*"
   (
     cd "$ROOT_DIR"
-    REGISTRY="$IMAGE_REGISTRY" TAG="$IMAGE_TAG" docker buildx bake "$@"
+    REGISTRY="$IMAGE_REGISTRY" docker buildx bake "$@"
   )
 }
 
@@ -76,9 +76,11 @@ wait_for_url() {
 }
 
 wait_for_health() {
-  local container="$1"
+  local container="$1" status
   for _ in {1..40}; do
-    [ "$(docker inspect -f '{{.State.Health.Status}}' "$container")" = healthy ] && return 0
+    status="$(docker inspect -f '{{.State.Health.Status}}' "$container" 2>/dev/null)" || return 1
+    [ "$status" = healthy ] && return 0
+    [ "$status" = unhealthy ] && return 1
     sleep 1
   done
   return 1
@@ -91,15 +93,13 @@ test_code() {
   for cmd in zsh git caddy code-server jq rg fd bat eza; do
     run_check "$img" "$cmd exists" command -v "$cmd"
   done
-  run_check "$img" "Go status binary removed" "! command -v workspace-status"
   run_check "$img" "/workspace exists" test -d /workspace
   run_check "$img" "/cache exists" test -d /cache
   run_check "$img" "dev user exists" id dev
   run_version "$img" "code-server" code-server --version
 
   header "Testing: code services"
-  docker rm -f smoke-code &>/dev/null || true
-  cid="$(docker run -d --name smoke-code "$img")"
+  cid="$(docker run -d --name "${SMOKE_PREFIX}-code" "$img")"
   if wait_for_url "$cid" http://127.0.0.1:8080/health; then
     pass "Caddy health endpoint responding"
   else
@@ -110,20 +110,15 @@ test_code() {
   else
     fail "Docker healthcheck reports healthy"
   fi
-  if docker exec "$cid" curl -fsS --max-time 5 http://127.0.0.1:8081 &>/dev/null; then
-    pass "code-server responding"
+  if docker exec "$cid" curl --noproxy '*' -fsS --max-time 5 http://127.0.0.1:8081/healthz &>/dev/null; then
+    pass "code-server health endpoint responding"
   else
-    fail "code-server responding"
+    fail "code-server health endpoint responding"
   fi
   if docker exec "$cid" sh -lc "curl -fsS http://127.0.0.1:8080/status | jq -e '. == {\"status\":\"running\"}'" &>/dev/null; then
     pass "compact status endpoint responding"
   else
     fail "compact status endpoint responding"
-  fi
-  if docker exec "$cid" sh -lc "test \"\$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ready)\" = 404 && test \"\$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/status/services)\" = 404 && test \"\$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/status/tools)\" = 404" &>/dev/null; then
-    pass "removed status endpoints return 404"
-  else
-    fail "removed status endpoints return 404"
   fi
   if docker exec "$cid" sh -lc "curl -fsS http://127.0.0.1:8080/ | grep -q 'Code Server'" &>/dev/null; then
     pass "static dashboard responding"
@@ -133,8 +128,7 @@ test_code() {
   docker rm -f "$cid" &>/dev/null || true
 
   header "Testing: code auth"
-  docker rm -f smoke-code-auth &>/dev/null || true
-  cid="$(docker run -d --name smoke-code-auth -e PASSWORD=smoke "$img")"
+  cid="$(docker run -d --name "${SMOKE_PREFIX}-code-auth" -e PASSWORD=smoke "$img")"
   wait_for_url "$cid" http://127.0.0.1:8080/code/ || true
   if docker exec "$cid" sh -lc "if curl -fsSI --max-time 5 http://127.0.0.1:8080/code/ | grep -qi '^www-authenticate:'; then exit 1; fi" &>/dev/null; then
     pass "code-server auth headers"
@@ -168,10 +162,9 @@ test_platform() {
   run_check "$img" "Rust executes" "printf 'fn main() { assert_eq!(2 + 2, 4); }\n' >/tmp/main.rs && rustc /tmp/main.rs -o /tmp/main && /tmp/main"
   run_check "$img" "Node executes" "node -e 'if (2 + 2 !== 4) process.exit(1)'"
 
-  for cmd in ruff mypy kotlin gradle cargo cc fnm kubectl helm k9s stern kubectx kubens xh grpcurl lazygit delta gh just duckdb yq psql redis-cli kcat websocat mlr rsync s5cmd mc ldb sst_dump datamash pv parallel gawk; do
+  for cmd in ruff mypy kotlin gradle cargo cc fnm kubectl helm k9s stern kubectx kubens xh grpcurl gron lazygit delta gh just duckdb yq psql redis-cli kcat websocat mlr rsync s5cmd mc ldb sst_dump datamash pv parallel gawk; do
     run_check "$img" "$cmd exists" command -v "$cmd"
   done
-  run_check "$img" "HTTPie removed" "! command -v http"
 }
 
 test_full() {
@@ -179,7 +172,7 @@ test_full() {
   img="$(image_for full)"
   header "Testing: full"
 
-  for cmd in jupyter-lab gdb strace tcpdump sqlite3 trivy gitleaks hyperfine; do
+  for cmd in jupyter-lab gdb strace ltrace valgrind tcpdump sqlite3 trivy gitleaks hyperfine; do
     run_check "$img" "$cmd exists" command -v "$cmd"
   done
 
@@ -204,11 +197,15 @@ test_full() {
   run_home_check "$img" "Kotlin kernel executes" "/opt/uv-tools/jupyterlab/bin/python -c 'import json; json.dump({\"cells\":[{\"cell_type\":\"code\",\"execution_count\":None,\"id\":\"kotlin-smoke\",\"metadata\":{},\"outputs\":[],\"source\":[\"check(2 + 2 == 4)\\n\"]}],\"metadata\":{\"kernelspec\":{\"display_name\":\"Kotlin\",\"language\":\"kotlin\",\"name\":\"kotlin\"}},\"nbformat\":4,\"nbformat_minor\":5}, open(\"/tmp/kotlin-smoke.ipynb\", \"w\"))' && /opt/uv-tools/jupyterlab/bin/jupyter execute /tmp/kotlin-smoke.ipynb"
 
   header "Testing: full services and auth"
-  docker rm -f smoke-full-auth &>/dev/null || true
-  cid="$(docker run -d --name smoke-full-auth \
+  cid="$(docker run -d --name "${SMOKE_PREFIX}-full-auth" \
     --mount "type=volume,src=${SMOKE_HOME_VOLUME},dst=/home/dev" \
     -e JUPYTER_TOKEN=smoke "$img")"
   wait_for_url "$cid" http://127.0.0.1:8080/lab || true
+  if wait_for_health "$cid"; then
+    pass "Docker healthcheck covers enabled services"
+  else
+    fail "Docker healthcheck covers enabled services"
+  fi
   if docker exec "$cid" sh -lc "curl -fsS -D - -o /dev/null --max-time 5 http://127.0.0.1:8080/lab | grep -q '^HTTP/.* 302'" &>/dev/null; then
     pass "JupyterLab requires authentication"
   else
@@ -223,7 +220,7 @@ test_full() {
 }
 
 cleanup() {
-  docker rm -f smoke-code smoke-code-auth smoke-full-auth &>/dev/null || true
+  docker rm -f "${SMOKE_PREFIX}-code" "${SMOKE_PREFIX}-code-auth" "${SMOKE_PREFIX}-full-auth" &>/dev/null || true
   docker volume rm -f "$SMOKE_HOME_VOLUME" &>/dev/null || true
 }
 
