@@ -32,9 +32,9 @@ start:
 down:
     docker compose down
 
-# Open a shell in the workspace
+# Open a dev shell in the workspace
 shell:
-    docker compose exec workspace zsh
+    docker compose exec --user dev --env HOME=/home/dev --env USER=dev workspace zsh
 
 # Follow logs
 logs:

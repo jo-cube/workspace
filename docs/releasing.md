@@ -27,8 +27,8 @@ git push origin v1.2.3
 The release workflow verifies that the tagged commit is reachable from
 `origin/main` before publishing. It also:
 
-- smoke-tests the `code`, `platform`, and `full` images on the native runner;
-- rejects fixed Critical vulnerabilities reported by Trivy;
+- builds the inherited `full` image on the native runner for scanning;
+- reports fixed Critical vulnerabilities with Trivy without blocking publication;
 - publishes `linux/amd64` and `linux/arm64` images; and
 - attaches BuildKit provenance and an SBOM to each published image.
 

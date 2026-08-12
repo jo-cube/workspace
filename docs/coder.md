@@ -101,12 +101,15 @@ resource "coder_app" "code-server" {
   share        = "owner"
 
   healthcheck {
-    url       = "http://localhost:8080/health"
+    url       = "http://localhost:8081/healthz"
     interval  = 10
     threshold = 3
   }
 }
 ```
+
+The app health check reaches code-server's loopback-only `/healthz` endpoint
+inside the workspace; port 8081 remains unexposed.
 
 The Coder provisioner needs its normal access to the target Docker daemon. The
 workspace container itself does not need the Docker socket, privileged mode, or

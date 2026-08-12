@@ -3,7 +3,7 @@ workspace/*
 !workspace/.gitkeep
 
 # Optional runtime config
-runtime-config/*.env
+runtime-config/*
 !runtime-config/.gitkeep
 
 # Secrets (never commit)

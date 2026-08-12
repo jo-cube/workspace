@@ -24,11 +24,11 @@ just start full
 | Dashboard | `http://localhost:8080` |
 | Browser IDE | `http://localhost:8080/code/` |
 | Jupyter | `http://localhost:8080/lab` (when enabled) |
-| Health | `http://localhost:8080/health` |
+| Proxy liveness | `http://localhost:8080/health` |
 | Status | `http://localhost:8080/status` |
 | Shell | `just shell` |
 
-The dashboard at root shows services with live status, system info, and links.
+The dashboard at root provides links to the browser services and status routes.
 JupyterLab opens at `/workspace`, the bind-mounted project root. User state and shell history live in `/home/dev`.
 
 ## Jupyter kernels
@@ -118,7 +118,7 @@ Use quoted values for secrets or hashes so shell metacharacters stay literal.
 ## Health check
 
 ```bash
-# Quick check from host
+# Caddy liveness from host
 just health
 
 # Full check inside container
@@ -163,5 +163,5 @@ just            # show all available commands
   `just reset` when you intentionally want the current image defaults again.
 - Package caches (uv, gradle, go modules) persist in the `cache` volume.
 - Use `just shell` for quick terminal access.
-- The workspace index page at root shows which services are available.
+- The workspace index page at root links to the browser services.
 - `docker buildx bake` resolves all parent images automatically. Use bake/`just`, not `docker compose up --build`.

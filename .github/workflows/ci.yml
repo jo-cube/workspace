@@ -31,8 +31,12 @@ jobs:
 
       - name: Check shell scripts
         run: |
-          bash -n scripts/doctor.sh scripts/smoke-test.sh
-          sh -n config/cont-init.d/00-fix-perms config/s6/*/run
+          for script in scripts/doctor.sh scripts/smoke-test.sh; do
+            bash -n "$script"
+          done
+          for script in scripts/healthcheck.sh config/cont-init.d/* config/s6/*/run; do
+            sh -n "$script"
+          done
 
       - name: Check just recipes
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4

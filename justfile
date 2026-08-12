@@ -35,9 +35,9 @@ start target=flavor:
 down:
     docker compose down
 
-# Open a shell in the running workspace
+# Open a dev shell in the running workspace
 shell:
-    docker compose exec workspace zsh
+    docker compose exec --user dev --env HOME=/home/dev --env USER=dev workspace zsh
 
 # Follow workspace logs
 logs:
@@ -75,6 +75,6 @@ clean-build-cache:
 # Remove runtime data and Docker build cache
 clean: reset clean-build-cache
 
-# Quick health check from host
+# Quick Caddy liveness check from host
 health:
-    @curl -sf http://localhost:${WORKSPACE_PORT:-8080}/health >/dev/null && echo "workspace healthy"
+    @curl --noproxy '*' -sf http://localhost:${WORKSPACE_PORT:-8080}/health >/dev/null && echo "workspace healthy"
