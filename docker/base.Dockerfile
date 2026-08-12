@@ -63,14 +63,16 @@ esac > /etc/arch-env
 EOF
 
 # s6-overlay
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/s6-noarch.tar.xz
-RUN tar -C / -Jxpf /tmp/s6-noarch.tar.xz && rm /tmp/s6-noarch.tar.xz
-
 RUN . /etc/arch-env \
-    && curl -fsSL "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${GNU_ARCH}.tar.xz" \
+    && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --remove-on-error \
+       "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
+       -o /tmp/s6-noarch.tar.xz \
+    && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --remove-on-error \
+       "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${GNU_ARCH}.tar.xz" \
        -o /tmp/s6-arch.tar.xz \
+    && tar -C / -Jxpf /tmp/s6-noarch.tar.xz \
     && tar -C / -Jxpf /tmp/s6-arch.tar.xz \
-    && rm /tmp/s6-arch.tar.xz
+    && rm /tmp/s6-noarch.tar.xz /tmp/s6-arch.tar.xz
 
 # Caddy
 COPY --from=caddy-bin /usr/bin/caddy /usr/bin/caddy

@@ -26,8 +26,7 @@ RUN mkdir -p /opt/uv-tools/bin /cache/uv /cache/go /cache/gradle /opt/rust /opt/
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      gcc libc6-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+      gcc libc6-dev
 
 # Go
 RUN --mount=type=cache,target=/cache/go-downloads,sharing=locked \

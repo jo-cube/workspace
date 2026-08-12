@@ -58,8 +58,7 @@ ENV ENABLE_JUPYTER=true
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      gdb strace ltrace valgrind tcpdump sqlite3 \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+      gdb strace ltrace valgrind tcpdump sqlite3
 
 # trivy
 RUN set -eux; \
@@ -72,7 +71,7 @@ RUN set -eux; \
 
 # gitleaks
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
-    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
+    --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked \
     GOBIN=/usr/local/bin go install github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}
 
 # hyperfine

@@ -41,12 +41,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
       postgresql-client redis-tools kcat miller rsync rocksdb-tools \
-      datamash pv parallel gawk \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+      datamash pv parallel gawk
 
 # Build Go tools with the image toolchain so standard-library security fixes apply.
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
-    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
+    --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked \
     set -eux; \
     GOBIN=/usr/local/bin go install github.com/tomnomnom/gron@v${GRON_VERSION}; \
     GOBIN=/usr/local/bin go install github.com/peak/s5cmd/v2@v${S5CMD_VERSION}; \
@@ -125,8 +124,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
       > /etc/apt/sources.list.d/github-cli.list \
-    && apt-get update && apt-get install -y --no-install-recommends gh \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get update && apt-get install -y --no-install-recommends gh
 
 # just (install script is arch-aware)
 RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin \
