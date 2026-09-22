@@ -1,35 +1,39 @@
-# justfile
+# Load only this project's optional configuration.
+set dotenv-command := "if [ -f .env ]; then cat .env; fi"
+set positional-arguments
+set shell := ["sh", "-eu", "-c"]
 
-registry := env("REGISTRY", "ghcr.io/jo-cube")
-tag := env("TAG", "latest")
-flavor := env("FLAVOR", "code")
+export REGISTRY := if env("REGISTRY", "") == "" { "ghcr.io/jo-cube" } else { env("REGISTRY") }
+export TAG := if env("TAG", "") == "" { "latest" } else { env("TAG") }
+flavor := if env("FLAVOR", "") == "" { "code" } else { env("FLAVOR") }
 
 # List available commands
 default:
     @just --list
 
 # Build a specific flavor (and its dependencies)
-build target=flavor:
-    docker buildx bake {{ target }}
+build target=flavor: (_validate-flavor target)
+    docker buildx bake "$1"
 
 # Build all supported images
 build-all:
     docker buildx bake all
 
-# Rebuild and start a specific flavor
-up target=flavor:
-    just build {{ target }}
-    mkdir -p workspace runtime-config
-    chmod 0777 workspace
-    REGISTRY={{ registry }} FLAVOR={{ target }} docker compose up -d --no-build
+# Rebuild and wait for a healthy workspace
+up target=flavor: (build target)
+    just start "$1"
 
-# Start a flavor, building only when the local runtime image is missing
-start target=flavor:
-    @image="{{ registry }}/workspace:{{ target }}"; \
-    docker image inspect "$image" >/dev/null 2>&1 || just build {{ target }}; \
+# Start a flavor, building only when the selected image is missing
+start target=flavor: (_validate-flavor target)
+    @image="${REGISTRY}/workspace:${1}-${TAG}"; \
+    if ! docker image inspect "$image" >/dev/null 2>&1; then just build "$1"; fi; \
     mkdir -p workspace runtime-config; \
     chmod 0777 workspace; \
-    REGISTRY={{ registry }} FLAVOR={{ target }} docker compose up -d --no-build
+    FLAVOR="$1" docker compose up --wait --wait-timeout 120 --no-build
+
+# Pull a published flavor at TAG without building locally
+pull target=flavor: (_validate-flavor target)
+    FLAVOR="$1" docker compose pull workspace
 
 # Stop the running workspace
 down:
@@ -37,27 +41,36 @@ down:
 
 # Open a dev shell in the running workspace
 shell:
-    docker compose exec --user dev --env HOME=/home/dev --env USER=dev workspace zsh
+    docker compose exec --user dev --env HOME=/home/dev --env USER=dev --workdir /workspace workspace zsh -l
+
+# Run a command as dev; preserve arguments, stdin, and exit status
+exec +command:
+    @docker compose exec -T --user dev --env HOME=/home/dev --env USER=dev --workdir /workspace workspace "$@"
 
 # Follow workspace logs
 logs:
     docker compose logs -f
 
-# Show running container status
+# Show container state, including Docker health status
 status:
     docker compose ps
 
 # Run health checks inside the container
 doctor:
-    docker compose exec workspace bash /scripts/doctor.sh
+    docker compose exec -T workspace bash /scripts/doctor.sh
+
+# Check the proxy and every enabled browser service
+health:
+    @docker compose exec -T workspace /scripts/healthcheck.sh
+    @echo "workspace healthy"
 
 # Push a specific flavor to registry
-push target=flavor:
-    REGISTRY={{ registry }} TAG={{ tag }} docker buildx bake {{ target }} --push
+push target=flavor: (_validate-flavor target)
+    docker buildx bake "$1" --push
 
 # Push all images to registry
 push-all:
-    REGISTRY={{ registry }} TAG={{ tag }} docker buildx bake all --push
+    docker buildx bake all --push
 
 # Reset runtime data, keep build cache
 reset:
@@ -75,6 +88,5 @@ clean-build-cache:
 # Remove runtime data and Docker build cache
 clean: reset clean-build-cache
 
-# Quick Caddy liveness check from host
-health:
-    @curl --noproxy '*' -sf http://localhost:${WORKSPACE_PORT:-8080}/health >/dev/null && echo "workspace healthy"
+_validate-flavor target:
+    @case "$1" in code|platform|full) ;; *) echo "Unsupported flavor: $1 (expected code, platform, or full)" >&2; exit 1 ;; esac
