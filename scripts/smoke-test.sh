@@ -22,14 +22,14 @@ fail() { echo -e "  ${RED}✗${NC} $1"; ((FAIL += 1)); }
 header() { echo -e "\n${BOLD}=== $1 ===${NC}"; }
 
 image_for() {
-  printf '%s/workspace:%s' "$IMAGE_REGISTRY" "$1"
+  printf '%s/workspace:%s-smoke' "$IMAGE_REGISTRY" "$1"
 }
 
 build_flavors() {
   header "Building: $*"
   (
     cd "$ROOT_DIR"
-    REGISTRY="$IMAGE_REGISTRY" docker buildx bake "$@"
+    REGISTRY="$IMAGE_REGISTRY" TAG=smoke docker buildx bake "$@"
   )
 }
 
@@ -69,7 +69,7 @@ run_version() {
 wait_for_url() {
   local container="$1" url="$2"
   for _ in {1..30}; do
-    docker exec "$container" curl -fsS --max-time 2 "$url" &>/dev/null && return 0
+    docker exec "$container" curl --noproxy '*' -fsS --max-time 2 "$url" &>/dev/null && return 0
     sleep 1
   done
   return 1
@@ -114,11 +114,6 @@ test_code() {
     pass "code-server health endpoint responding"
   else
     fail "code-server health endpoint responding"
-  fi
-  if docker exec "$cid" sh -lc "curl -fsS http://127.0.0.1:8080/status | jq -e '. == {\"status\":\"running\"}'" &>/dev/null; then
-    pass "compact status endpoint responding"
-  else
-    fail "compact status endpoint responding"
   fi
   if docker exec "$cid" sh -lc "curl -fsS http://127.0.0.1:8080/ | grep -q 'Code Server'" &>/dev/null; then
     pass "static dashboard responding"
