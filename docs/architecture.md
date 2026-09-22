@@ -57,7 +57,6 @@ image, so a failed browser application cannot leave the container healthy.
 ```text
 /                 static service links
 /health           static 200 response
-/status           {"status":"running"}
 /code, /code/*    code-server
 /lab, /lab/*      JupyterLab
 ```
@@ -71,4 +70,9 @@ proxy.
 - `docker/*.Dockerfile` — readable internal layers and the final runtime overlay
 - `docker-bake.hcl` — dependency graph for the three supported images
 - `compose.yaml` — local launcher
-- `justfile` — thin build and runtime commands
+- `justfile` — thin build and runtime commands, including pull and command execution
+
+Bake, Compose, and published releases use `<flavor>-<tag>` image names.
+The launchers load `.env`, honor shell overrides, and wait for Docker health
+before reporting successful startup. `just health` runs the same probe as
+Docker; `/health` checks only Caddy liveness.

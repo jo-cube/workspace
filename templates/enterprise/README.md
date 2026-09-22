@@ -2,6 +2,8 @@
 
 Enterprise overlay for the generic workspace images. Use this as a small template for corporate trust, proxy, registry, Git, and internal-tool defaults.
 
+Requires Docker with Compose `up --wait` support and Just 1.54 or newer.
+
 ## Quick start
 
 ```bash
@@ -15,7 +17,7 @@ just shell
 just up
 
 # Build with a different supported base
-BASE_IMAGE=ghcr.io/jo-cube/workspace:full just build
+BASE_IMAGE=ghcr.io/jo-cube/workspace:full-latest just build
 ```
 
 ## What this adds
@@ -41,8 +43,19 @@ just down               # stop
 just shell              # open zsh
 just logs               # follow logs
 just push               # push to enterprise registry
-just clean              # remove volumes
+just pull               # download the selected enterprise image
+just exec git status    # run as dev; stdin and exit status pass through
+just status             # container state and Docker health
+just health             # proxy and enabled browser services
+just doctor             # tools, services, and filesystem checks
+just reset              # remove home/cache volumes, keep workspace files
 ```
+
+`just start` and `just up` wait for service readiness. All commands load `.env`
+and honor exported shell overrides. Set `REGISTRY` (the complete enterprise
+image repository), `TAG`, and `BASE_IMAGE` there; the selected runtime image is
+`${REGISTRY}:${TAG}`. To use a published enterprise image, run `just pull` then
+`just start`. `BASE_IMAGE` is used only when building the overlay.
 
 ## Configuration
 

@@ -42,6 +42,32 @@ Everything in `platform` plus:
 - Trivy and Gitleaks
 - hyperfine and sqlite3
 
+## Image selection
+
+Runtime image names are `ghcr.io/jo-cube/workspace:<flavor>-<tag>`, for example
+`code-latest` or `full-1.3.0`. `TAG` defaults to `latest`. Local builds and
+published releases use the same naming scheme.
+
+To run a published image without a local build, put your selection in `.env`:
+
+```dotenv
+FLAVOR=platform
+TAG=1.3.0
+REGISTRY=ghcr.io/jo-cube
+```
+
+```bash
+just pull
+just start
+```
+
+`just pull` downloads the selected image without starting it. `just start`
+uses the local image if present, otherwise builds it from this checkout.
+`just up` always rebuilds. Use `just pull` again to refresh a moving tag.
+An explicit flavor argument overrides `FLAVOR`; exported variables override
+`.env`. Direct Bake invocations use exported variables, so use `just build`
+when you want `.env` selection applied.
+
 ## Internal build layers
 
 The Bake graph uses `base-core`, `code-core`, `polyglot-core`,

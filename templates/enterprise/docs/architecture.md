@@ -5,7 +5,7 @@
 The enterprise overlay does not build from scratch. It layers enterprise-specific configuration on top of a generic workspace image:
 
 ```
-ghcr.io/jo-cube/workspace:platform   (generic base)
+ghcr.io/jo-cube/workspace:platform-latest   (generic base)
 └── enterprise overlay
     ├── CA certificates
     ├── proxy configuration
@@ -28,7 +28,7 @@ ghcr.io/jo-cube/workspace:platform   (generic base)
 ## Security
 
 - No secrets baked into images
-- CA certificates and Git config are the only build-time additions
+- Non-secret CA, proxy, Git, and registry defaults are baked into the overlay
 - Proxy URLs use placeholders in version control
 - Secrets are mounted read-only at `/secrets/`
 - App credentials are mounted read-only at `/etc/workspace/`, not baked
@@ -51,7 +51,7 @@ steps:
     run: |
       install -m 0644 "$CI_TRUST_BUNDLE" config/ca-certificates/root-ca.crt
       REGISTRY=registry.internal.example.com/workspace \
-        BASE_IMAGE=ghcr.io/jo-cube/workspace:platform \
+        BASE_IMAGE=ghcr.io/jo-cube/workspace:platform-latest \
         docker buildx bake enterprise --push
 ```
 
