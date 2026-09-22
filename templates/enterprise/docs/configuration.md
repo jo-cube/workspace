@@ -1,5 +1,20 @@
 # Configuration guide
 
+## Image selection
+
+Set non-secret image selection in `.env`:
+
+```dotenv
+REGISTRY=registry.internal.example.com/workspace
+TAG=latest
+BASE_IMAGE=ghcr.io/jo-cube/workspace:platform-latest
+```
+
+The Just commands load this file for both Bake and Compose. Exported variables
+take precedence. `just build` builds `${REGISTRY}:${TAG}` from `BASE_IMAGE`;
+`just pull` downloads it; `just start` waits for it to be healthy, building only
+if it is missing locally. `just up` always rebuilds before starting.
+
 ## CA certificates
 
 Place `.crt` files in `config/ca-certificates/`. They are added to the system trust store at build time.

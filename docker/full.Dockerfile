@@ -27,6 +27,7 @@ esac >> /etc/arch-env
 EOF
 
 # JupyterLab
+# Build the Rust kernel serially to keep peak compiler memory manageable.
 USER dev
 RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
     --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked,uid=1000,gid=1000 \
@@ -36,7 +37,7 @@ RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
   && /opt/uv-tools/jupyterlab/bin/python -m bash_kernel.install --sys-prefix \
   && /opt/uv-tools/jupyterlab/bin/python -c 'import json,pathlib,sys; p=pathlib.Path(sys.prefix)/"share/jupyter/kernels/kotlin/kernel.json"; data=json.loads(p.read_text()); data["argv"][0]=sys.executable; data["metadata"]["jar_path_detect_command"][0]=sys.executable; p.write_text(json.dumps(data, indent=2)+"\n")' \
   && rustup component add rust-src \
-  && cargo install --locked evcxr_jupyter \
+  && cargo install --locked --jobs 1 evcxr_jupyter \
   && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install
 
 USER root

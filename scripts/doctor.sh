@@ -80,7 +80,6 @@ done
 echo ""
 echo "--- Network ---"
 check_service "http://127.0.0.1:8080/health" "Caddy proxy"
-check_service "http://127.0.0.1:8080/status" "status endpoint"
 [ "${ENABLE_CODE:-false}" = "true" ] && check_service "http://127.0.0.1:8081/healthz" "code-server"
 [ "${ENABLE_JUPYTER:-false}" = "true" ] && check_service "http://127.0.0.1:8888/lab" "JupyterLab"
 

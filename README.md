@@ -18,11 +18,30 @@ Containerized development workspace images and an enterprise overlay template.
 just start           # code
 just start platform
 just start full
+
+# Use a published image without a local build
+just pull platform
+just start platform
 ```
 
 `just start` builds only when the selected local image is missing. Use
-`just up <flavor>` when you explicitly want to rebuild. Builds go through
-`docker buildx bake`, not `docker compose up --build`.
+`just up <flavor>` to rebuild. Both wait for the proxy and enabled browser
+services to be healthy. Builds go through `docker buildx bake`.
+
+Images use `<flavor>-<tag>`, such as `platform-latest`. Set `FLAVOR`, `TAG`, and
+`REGISTRY` in `.env` to use the same selection for builds, pulls, and startup;
+shell environment values take precedence. For a specific release, set
+`TAG=1.3.0`, then run `just pull` and `just start`.
+
+Use `just shell` for an interactive terminal, or `just exec <command> ...` to
+run a command as `dev` in `/workspace`, including pipelines:
+
+```bash
+just exec git status
+printf 'hello\n' | just exec cat
+just health          # proxy and enabled services
+just status          # container state and Docker health
+```
 
 Open:
 
@@ -30,7 +49,6 @@ Open:
 - `http://localhost:8080/code/` — code-server
 - `http://localhost:8080/lab` — JupyterLab in `full`
 - `http://localhost:8080/health` — proxy liveness
-- `http://localhost:8080/status` — compact status
 
 ## Supported images
 
@@ -98,8 +116,8 @@ platform secret store.
 ## Requirements
 
 - Docker with BuildKit/buildx
-- Docker Compose v2
-- [`just`](https://just.systems)
+- Docker Compose v2 with `up --wait` support
+- [`just`](https://just.systems) 1.54 or newer
 
 ## More docs
 

@@ -17,5 +17,8 @@ secrets/
 # Docker
 .env
 
+# Python test artifacts
+__pycache__/
+
 # OS
 .DS_Store

@@ -2,166 +2,140 @@
 
 ## Prerequisites
 
-- Docker with BuildKit enabled
-- Docker Compose v2
-- [just](https://just.systems) command runner
+- Docker with BuildKit/buildx and Compose v2 with `up --wait` support
+- [just](https://just.systems) 1.54 or newer
 
-## Start workspace
+## Start a workspace
 
 ```bash
-# Default (code flavor, build only if missing)
-just start
-
-# Specific flavor
+just start           # code, build only if the selected image is missing
 just start platform
 just start full
 ```
 
-## Access
+Use `just up <flavor>` to rebuild before starting, or `just pull <flavor>` to
+download a published image before `just start <flavor>`. Both start commands
+wait up to 120 seconds for Caddy and every enabled browser service to be
+healthy. A failed build or readiness check returns a failure; inspect
+`just logs`, `just status`, or `just doctor` for details.
+
+## Access and commands
 
 | Method | Command / URL |
 |--------|---------------|
 | Dashboard | `http://localhost:8080` |
 | Browser IDE | `http://localhost:8080/code/` |
-| Jupyter | `http://localhost:8080/lab` (when enabled) |
+| Jupyter | `http://localhost:8080/lab` (`full`) |
 | Proxy liveness | `http://localhost:8080/health` |
-| Status | `http://localhost:8080/status` |
-| Shell | `just shell` |
+| Container state and Docker health | `just status` |
+| Interactive shell | `just shell` |
+| Run a command | `just exec git status` |
 
-The dashboard at root provides links to the browser services and status routes.
-JupyterLab opens at `/workspace`, the bind-mounted project root. User state and shell history live in `/home/dev`.
-
-## Jupyter kernels
-
-`full` includes Python, Bash, Rust via Evcxr, Go via GoNB, and Kotlin kernels.
-
-GoNB uses the Go compiler, so bare expressions like `2 + 2` are not valid top-level cells. Use a normal `func main`:
-
-```go
-func main() {
-    fmt.Println(2 + 2)
-}
-```
-
-Or use GoNB's `%%` shortcut, which wraps the cell body in `func main`:
-
-```go
-%%
-fmt.Println(2 + 2)
-```
-
-## Volumes
-
-```yaml
-volumes:
-  - ./workspace:/workspace       # your projects
-  - home:/home/dev               # persists dotfiles, shell history
-  - cache:/cache                 # package caches (uv, gradle, go, etc.)
-  - ./runtime-config:/etc/workspace:ro  # optional local app config
-```
-
-The `home` and `cache` volumes persist across container recreations. Image
-dotfiles seed a new home volume once; image updates do not overwrite later user
-changes. Remove the volumes with:
+Shells and commands run as `dev` in `/workspace` with `HOME=/home/dev`.
+`just exec` preserves arguments and exit status, passes stdin through, and
+works without a terminal:
 
 ```bash
-just reset
+just exec python -c 'print("hello from Python")'
+printf 'hello\n' | just exec cat
+just exec sh -c 'git status && git diff --stat'
 ```
 
-`./workspace` is a host bind mount, not a Docker volume, so `just reset` keeps its files. To remove those files too without pruning Docker build cache:
+Use an explicit shell such as `sh -c` when you need shell operators inside
+the container. Use `just shell` for interactive programs that need a terminal.
 
-```bash
-just reset-workspace
-```
+## Image and environment selection
 
-`just start` and `just up` make the bind root writable for the image's fixed
-`dev` user. This assumes the documented trusted single-user host; use a
-deployment-specific UID or mount policy on a multi-user host.
+The launchers load `.env` beside their `justfile`. Exported shell variables take precedence, and an
+explicit flavor argument overrides `FLAVOR`:
 
-## Environment overrides
-
-Create a `.env` file for host-side selection:
-
-```bash
+```dotenv
 FLAVOR=full
+TAG=latest
+REGISTRY=ghcr.io/jo-cube
 WORKSPACE_PORT=9090
 WORKSPACE_BIND_ADDRESS=127.0.0.1
 PASSWORD='change-me'
 JUPYTER_TOKEN='change-me-too'
 ```
 
-Service defaults come from the image. Use `full` for JupyterLab.
-Set `PASSWORD` or `HASHED_PASSWORD` for code-server auth. Set `JUPYTER_TOKEN` for JupyterLab auth. Caddy is the path router.
-Leave those values unset for an unauthenticated local container on a trusted loopback-only setup.
-Compose binds to loopback by default. Set `WORKSPACE_BIND_ADDRESS=0.0.0.0` only
-behind an authenticated workspace proxy such as Coder, or after configuring
-app credentials and a suitable network/TLS boundary.
+This selects `ghcr.io/jo-cube/workspace:full-latest`. To use a specific published
+release, set its `TAG`, then run `just pull` followed by `just start`.
+Builds, pulls, and startup share the same image selection. See [Images](images.md).
 
-You can also use a generic runtime config file:
+## Authentication
 
-```bash
-mkdir -p runtime-config
-cat > runtime-config/config.env
-```
+Set `PASSWORD` or `HASHED_PASSWORD` for code-server, and `JUPYTER_TOKEN` for
+JupyterLab. Unset credentials allow trusted single-user local operation.
+Compose binds to loopback by default. Listen on `0.0.0.0` only behind an
+authenticated workspace proxy such as Coder, or with app credentials and an
+appropriate network/TLS boundary.
+
+Credentials can also live in `runtime-config/config.env`:
 
 ```bash
 PASSWORD='change-me'
 JUPYTER_TOKEN='change-me-too'
 ```
 
-`runtime-config/config.env` is gitignored and mounted read-only at
-`/etc/workspace/config.env`. It is also excluded from the Docker build context,
-so credentials stay out of image layers. A runtime connector can mount the same
-file elsewhere and set `WORKSPACE_CONFIG_FILE` to that container path.
-Use quoted values for secrets or hashes so shell metacharacters stay literal.
+This optional shell-format file is gitignored, excluded from the build
+context, and mounted read-only at `/etc/workspace/config.env`. Quote values
+so shell metacharacters stay literal. A deployment can mount it elsewhere
+and set `WORKSPACE_CONFIG_FILE` to that container path.
 
-## Health check
+## Persistent data
 
-```bash
-# Caddy liveness from host
-just health
+| Path | Storage | Purpose |
+|------|---------|---------|
+| `/workspace` | `./workspace` bind mount | Project files |
+| `/home/dev` | `home` named volume | User configuration and history |
+| `/cache` | `cache` named volume | Package caches |
+| `/etc/workspace` | `./runtime-config` read-only bind mount | Optional app configuration |
 
-# Full check inside container
-just doctor
-```
+Image dotfiles seed a new home volume once; image updates preserve user edits.
+Image-owned runtimes live outside `/home/dev`, so they remain available when
+switching flavors or reusing volumes.
 
-## Rebuilding
-
-```bash
-# Start without rebuilding when the image exists
-just start
-
-# Rebuild and start
-just up full
-
-# Rebuild one flavor and its final runtime overlay
-docker buildx bake full
-
-# Full clean rebuild
-just clean
-just up full
-```
-
-`just clean` also prunes Docker build cache. Use `just reset` when you only want fresh runtime volumes, or `just reset-workspace` when you also want to empty the bind-mounted project directory.
-
-## Useful commands
+`just start` makes the workspace bind root writable for the fixed `dev` user.
+This assumes a trusted single-user host; use a deployment-specific UID or
+mount policy on a multi-user host.
 
 ```bash
-just status     # show container state
-just logs       # follow logs
-just doctor     # health checks inside container
-just start           # start, build only if image is missing
-just reset            # remove home/cache volumes, keep ./workspace and build cache
-just reset-workspace  # remove home/cache volumes and ./workspace contents
-just            # show all available commands
+just down              # stop, preserve all data
+just reset             # remove home/cache volumes, preserve project files
+just reset-workspace   # also delete ./workspace contents
+just clean-build-cache # prune Docker build cache
+just clean             # reset volumes and prune build cache
 ```
 
-## Tips
+## Health and validation
 
-- The `workspace/` directory is bind-mounted, so its files survive `just reset`.
-- Shell history and user-edited config persist in the `home` volume. Use
-  `just reset` when you intentionally want the current image defaults again.
-- Package caches (uv, gradle, go modules) persist in the `cache` volume.
-- Use `just shell` for quick terminal access.
-- The workspace index page at root links to the browser services.
-- `docker buildx bake` resolves all parent images automatically. Use bake/`just`, not `docker compose up --build`.
+```bash
+just health    # probe Caddy and every enabled browser service
+just doctor    # also check tools and filesystem permissions
+just logs      # follow service logs
+```
+
+`just health` runs inside the selected Compose container, so it works with
+custom host ports and bind addresses. `/health` is only a Caddy liveness probe.
+
+For repository changes, run:
+
+```bash
+python3 -m unittest discover -s tests -v  # recipe behavior and Compose/Bake agreement
+./scripts/smoke-test.sh all              # build and exercise every image and kernel
+```
+
+The recipe tests require Python 3, Just, and the Docker CLI; they do not need
+a running Docker daemon. Smoke tests use isolated containers and volumes.
+
+## Jupyter kernels
+
+`full` includes Python, Bash, Rust via Evcxr, Go via GoNB, and Kotlin kernels.
+JupyterLab opens at `/workspace`. GoNB uses the Go compiler, so wrap expressions
+in a function or use its `%%` shortcut:
+
+```go
+%%
+fmt.Println(2 + 2)
+```

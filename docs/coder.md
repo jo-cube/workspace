@@ -42,7 +42,7 @@ resource "coder_agent" "main" {
 }
 
 resource "docker_image" "workspace" {
-  name         = "ghcr.io/jo-cube/workspace:platform"
+  name         = "ghcr.io/jo-cube/workspace:platform-latest"
   keep_locally = true
 }
 
@@ -146,7 +146,7 @@ coder port-forward <workspace-name> --tcp 8080:8080
 Then access locally:
 - `http://localhost:8080/code/` — code-server
 - `http://localhost:8080/lab` — JupyterLab
-- `http://localhost:8080/status` — workspace status
+- `http://localhost:8080/health` — proxy liveness
 
 ## Single-port model
 
@@ -160,7 +160,7 @@ Choose the image flavor per workspace:
 
 ```hcl
 resource "docker_image" "workspace" {
-  name = "ghcr.io/jo-cube/workspace:full"
+  name = "ghcr.io/jo-cube/workspace:full-latest"
 }
 ```
 

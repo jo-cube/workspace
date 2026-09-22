@@ -2,6 +2,7 @@
 .github
 *.md
 docs/
+tests/
 templates/
 workspace/
 runtime-config/

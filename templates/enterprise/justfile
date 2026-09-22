@@ -1,8 +1,11 @@
-# templates/enterprise/justfile
+# Load only this project's optional configuration.
+set dotenv-command := "if [ -f .env ]; then cat .env; fi"
+set positional-arguments
+set shell := ["sh", "-eu", "-c"]
 
-base_image := env("BASE_IMAGE", "ghcr.io/jo-cube/workspace:platform")
-registry := env("REGISTRY", "registry.internal.example.com/workspace")
-tag := env("TAG", "latest")
+export BASE_IMAGE := if env("BASE_IMAGE", "") == "" { "ghcr.io/jo-cube/workspace:platform-latest" } else { env("BASE_IMAGE") }
+export REGISTRY := if env("REGISTRY", "") == "" { "registry.internal.example.com/workspace" } else { env("REGISTRY") }
+export TAG := if env("TAG", "") == "" { "latest" } else { env("TAG") }
 
 # List available commands
 default:
@@ -11,22 +14,23 @@ default:
 # Build the enterprise overlay image
 build:
     set -a; [ ! -f config/proxy.env ] || . ./config/proxy.env; set +a; \
-    REGISTRY={{ registry }} TAG={{ tag }} BASE_IMAGE={{ base_image }} docker buildx bake enterprise
+    docker buildx bake enterprise
 
-# Rebuild and start the workspace
-up:
-    just build
-    mkdir -p workspace runtime-config secrets
-    chmod 0777 workspace
-    REGISTRY={{ registry }} TAG={{ tag }} docker compose up -d --no-build
+# Rebuild and wait for a healthy workspace
+up: build
+    just start
 
-# Start the workspace, building only when the local image is missing
+# Start the workspace, building only when the selected image is missing
 start:
-    @image="{{ registry }}:{{ tag }}"; \
-    docker image inspect "$image" >/dev/null 2>&1 || just build; \
+    @image="${REGISTRY}:${TAG}"; \
+    if ! docker image inspect "$image" >/dev/null 2>&1; then just build; fi; \
     mkdir -p workspace runtime-config secrets; \
     chmod 0777 workspace; \
-    REGISTRY={{ registry }} TAG={{ tag }} docker compose up -d --no-build
+    docker compose up --wait --wait-timeout 120 --no-build
+
+# Pull the published enterprise image at TAG without building locally
+pull:
+    docker compose pull workspace
 
 # Stop the workspace
 down:
@@ -34,17 +38,34 @@ down:
 
 # Open a dev shell in the workspace
 shell:
-    docker compose exec --user dev --env HOME=/home/dev --env USER=dev workspace zsh
+    docker compose exec --user dev --env HOME=/home/dev --env USER=dev --workdir /workspace workspace zsh -l
+
+# Run a command as dev; preserve arguments, stdin, and exit status
+exec +command:
+    @docker compose exec -T --user dev --env HOME=/home/dev --env USER=dev --workdir /workspace workspace "$@"
 
 # Follow logs
 logs:
     docker compose logs -f
 
+# Show container state, including Docker health status
+status:
+    docker compose ps
+
+# Run health checks inside the container
+doctor:
+    docker compose exec -T workspace bash /scripts/doctor.sh
+
+# Check the proxy and every enabled browser service
+health:
+    @docker compose exec -T workspace /scripts/healthcheck.sh
+    @echo "workspace healthy"
+
 # Push to enterprise registry
 push:
     set -a; [ ! -f config/proxy.env ] || . ./config/proxy.env; set +a; \
-    REGISTRY={{ registry }} TAG={{ tag }} BASE_IMAGE={{ base_image }} docker buildx bake enterprise --push
+    docker buildx bake enterprise --push
 
-# Remove volumes
-clean:
+# Reset runtime data, keep workspace files and build cache
+reset:
     docker compose down -v

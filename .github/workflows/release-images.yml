@@ -120,6 +120,7 @@ jobs:
       - name: Build release image for scanning
         env:
           REGISTRY: workspace-test
+          TAG: latest
           CACHE_FROM: "true"
           CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
           CACHE_IMAGE: workspace-cache
@@ -131,7 +132,7 @@ jobs:
           docker run --rm \
             --entrypoint /bin/sh \
             --volume /var/run/docker.sock:/var/run/docker.sock \
-            workspace-test/workspace:full -c '
+            workspace-test/workspace:full-latest -c '
               set -eu
               trivy image --download-db-only --no-progress
               trivy image --download-java-db-only --no-progress
@@ -143,7 +144,7 @@ jobs:
                 --ignore-unfixed \
                 --scanners vuln \
                 --severity CRITICAL \
-                workspace-test/workspace:full
+                workspace-test/workspace:full-latest
             '
 
       - name: Publish code, platform, and full

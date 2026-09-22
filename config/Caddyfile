@@ -8,11 +8,6 @@
 		respond "OK"
 	}
 
-	handle /status {
-		header Content-Type application/json
-		respond `{"status":"running"}`
-	}
-
 	@lab path /lab /lab/*
 	handle @lab {
 		reverse_proxy 127.0.0.1:8888

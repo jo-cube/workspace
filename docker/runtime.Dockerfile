@@ -18,7 +18,7 @@ RUN chmod +x /etc/s6-overlay/s6-rc.d/caddy/run \
 COPY config/cont-init.d/ /etc/cont-init.d/
 RUN chmod +x /etc/cont-init.d/*
 
-COPY scripts/ /scripts/
+COPY scripts/doctor.sh scripts/healthcheck.sh /scripts/
 RUN chmod +x /scripts/*.sh
 
 COPY config/Caddyfile /etc/caddy/Caddyfile
