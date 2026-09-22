@@ -47,6 +47,9 @@ jobs:
           just --list
           (cd templates/enterprise && just --fmt --check && just --list)
 
+      - name: Test launcher behavior
+        run: python3 -m unittest discover -s tests -v
+
       - name: Check Compose configuration
         run: |
           docker compose config --quiet
