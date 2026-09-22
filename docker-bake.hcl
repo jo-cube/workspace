@@ -51,7 +51,7 @@ target "code-core" {
 target "code" {
   dockerfile = "docker/runtime.Dockerfile"
   context    = "."
-  tags       = ["${REGISTRY}/workspace:code-${TAG}", "${REGISTRY}/workspace:code"]
+  tags       = ["${REGISTRY}/workspace:code-${TAG}"]
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:code-core" }
   contexts   = { "${REGISTRY}/workspace:code-core" = "target:code-core" }
   output     = PUBLISH == "true" ? [] : ["type=docker"]
@@ -78,7 +78,7 @@ target "platform-core" {
 target "platform" {
   dockerfile = "docker/runtime.Dockerfile"
   context    = "."
-  tags       = ["${REGISTRY}/workspace:platform-${TAG}", "${REGISTRY}/workspace:platform"]
+  tags       = ["${REGISTRY}/workspace:platform-${TAG}"]
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:platform-core" }
   contexts   = { "${REGISTRY}/workspace:platform-core" = "target:platform-core" }
   output     = PUBLISH == "true" ? [] : ["type=docker"]
@@ -96,7 +96,7 @@ target "full-core" {
 target "full" {
   dockerfile = "docker/runtime.Dockerfile"
   context    = "."
-  tags       = ["${REGISTRY}/workspace:full-${TAG}", "${REGISTRY}/workspace:full", "${REGISTRY}/workspace:latest"]
+  tags       = ["${REGISTRY}/workspace:full-${TAG}"]
   args       = { BASE_IMAGE = "${REGISTRY}/workspace:full-core" }
   contexts   = { "${REGISTRY}/workspace:full-core" = "target:full-core" }
   output     = PUBLISH == "true" ? [] : ["type=docker"]

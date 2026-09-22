@@ -2,7 +2,7 @@
 # Enterprise workspace overlay
 # Builds FROM the generic workspace image and adds enterprise-specific config.
 
-ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:platform
+ARG BASE_IMAGE=ghcr.io/jo-cube/workspace:platform-latest
 FROM ${BASE_IMAGE}
 
 # Enterprise CA certificates

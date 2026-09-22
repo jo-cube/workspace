@@ -7,7 +7,7 @@ variable "TAG" {
 }
 
 variable "BASE_IMAGE" {
-  default = "ghcr.io/jo-cube/workspace:platform"
+  default = "ghcr.io/jo-cube/workspace:platform-latest"
 }
 
 variable "HTTP_PROXY" {
