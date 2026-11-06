@@ -123,11 +123,19 @@ For repository changes, run:
 
 ```bash
 python3 -m unittest discover -s tests -v  # recipe behavior and Compose/Bake agreement
-./scripts/smoke-test.sh all              # build and exercise every image and kernel
+./scripts/smoke-test.sh all              # build and exercise every image, lifecycle, and kernel
+bash scripts/test-lifecycle.sh IMAGE     # lifecycle checks only, using an existing local image
 ```
 
 The recipe tests require Python 3, Just, and the Docker CLI; they do not need
 a running Docker daemon. Smoke tests use isolated containers and volumes.
+The smoke suite runs the shared lifecycle check once, using `full` when selected
+to include Jupyter. It gates permission initialization with empty, root-owned
+home/cache volumes, verifies configuration survives reuse, exercises health and
+crash recovery, and checks shutdown with Docker's default 10-second stop budget.
+Health polling is shortened only in test containers. Both scripts clean up their
+own labeled containers and volumes on exit, including HUP, INT, and TERM; they
+retain images and build caches for reuse.
 
 ## Jupyter kernels
 

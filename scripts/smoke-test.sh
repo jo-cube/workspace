@@ -11,8 +11,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-workspace-test}"
-SMOKE_PREFIX="workspace-smoke-$$"
-SMOKE_HOME_VOLUME="${SMOKE_PREFIX}-home"
+SMOKE_HOME_VOLUME=
 
 PASS=0
 FAIL=0
@@ -36,7 +35,7 @@ build_flavors() {
 run_check() {
   local image="$1" desc="$2"
   shift 2
-  if docker run --rm --user dev --entrypoint /bin/sh "$image" -lc "$*" &>/dev/null; then
+  if docker run --rm --label "$SMOKE_LABEL" --user dev --entrypoint /bin/sh "$image" -lc "$*" &>/dev/null; then
     pass "$desc"
   else
     fail "$desc"
@@ -46,7 +45,7 @@ run_check() {
 run_home_check() {
   local image="$1" desc="$2"
   shift 2
-  if docker run --rm --user dev \
+  if docker run --rm --label "$SMOKE_LABEL" --user dev \
     --mount "type=volume,src=${SMOKE_HOME_VOLUME},dst=/home/dev" \
     --entrypoint /bin/sh "$image" -lc "$*" &>/dev/null; then
     pass "$desc"
@@ -59,7 +58,7 @@ run_version() {
   local image="$1" desc="$2"
   shift 2
   local out
-  if out=$(docker run --rm --user dev --entrypoint /bin/sh "$image" -lc "$*" 2>&1); then
+  if out=$(docker run --rm --label "$SMOKE_LABEL" --user dev --entrypoint /bin/sh "$image" -lc "$*" 2>&1); then
     pass "$desc: ${out%%$'\n'*}"
   else
     fail "$desc"
@@ -99,7 +98,7 @@ test_code() {
   run_version "$img" "code-server" code-server --version
 
   header "Testing: code services"
-  cid="$(docker run -d --name "${SMOKE_PREFIX}-code" "$img")"
+  cid="$(docker run -d --label "$SMOKE_LABEL" "$img")"
   if wait_for_url "$cid" http://127.0.0.1:8080/health; then
     pass "Caddy health endpoint responding"
   else
@@ -123,7 +122,7 @@ test_code() {
   docker rm -f "$cid" &>/dev/null || true
 
   header "Testing: code auth"
-  cid="$(docker run -d --name "${SMOKE_PREFIX}-code-auth" -e PASSWORD=smoke "$img")"
+  cid="$(docker run -d --label "$SMOKE_LABEL" -e PASSWORD=smoke "$img")"
   wait_for_url "$cid" http://127.0.0.1:8080/code/ || true
   if docker exec "$cid" sh -lc "if curl -fsSI --max-time 5 http://127.0.0.1:8080/code/ | grep -qi '^www-authenticate:'; then exit 1; fi" &>/dev/null; then
     pass "code-server auth headers"
@@ -171,9 +170,8 @@ test_full() {
     run_check "$img" "$cmd exists" command -v "$cmd"
   done
 
-  docker volume rm -f "$SMOKE_HOME_VOLUME" &>/dev/null || true
-  docker volume create "$SMOKE_HOME_VOLUME" &>/dev/null
-  docker run --rm \
+  SMOKE_HOME_VOLUME="$(docker volume create --label "$SMOKE_LABEL")"
+  docker run --rm --label "$SMOKE_LABEL" \
     --mount "type=volume,src=${SMOKE_HOME_VOLUME},dst=/home/dev,volume-nocopy" \
     --entrypoint /bin/sh "$img" -c 'chown 1000:1000 /home/dev && touch /home/dev/existing-home' &>/dev/null
 
@@ -192,7 +190,7 @@ test_full() {
   run_home_check "$img" "Kotlin kernel executes" "/opt/uv-tools/jupyterlab/bin/python -c 'import json; json.dump({\"cells\":[{\"cell_type\":\"code\",\"execution_count\":None,\"id\":\"kotlin-smoke\",\"metadata\":{},\"outputs\":[],\"source\":[\"check(2 + 2 == 4)\\n\"]}],\"metadata\":{\"kernelspec\":{\"display_name\":\"Kotlin\",\"language\":\"kotlin\",\"name\":\"kotlin\"}},\"nbformat\":4,\"nbformat_minor\":5}, open(\"/tmp/kotlin-smoke.ipynb\", \"w\"))' && /opt/uv-tools/jupyterlab/bin/jupyter execute /tmp/kotlin-smoke.ipynb"
 
   header "Testing: full services and auth"
-  cid="$(docker run -d --name "${SMOKE_PREFIX}-full-auth" \
+  cid="$(docker run -d --label "$SMOKE_LABEL" \
     --mount "type=volume,src=${SMOKE_HOME_VOLUME},dst=/home/dev" \
     -e JUPYTER_TOKEN=smoke "$img")"
   wait_for_url "$cid" http://127.0.0.1:8080/lab || true
@@ -215,8 +213,18 @@ test_full() {
 }
 
 cleanup() {
-  docker rm -f "${SMOKE_PREFIX}-code" "${SMOKE_PREFIX}-code-auth" "${SMOKE_PREFIX}-full-auth" &>/dev/null || true
-  docker volume rm -f "$SMOKE_HOME_VOLUME" &>/dev/null || true
+  local status=$? containers volumes
+  trap - EXIT
+  trap '' HUP INT TERM
+  containers="$(docker ps -aq --filter "label=$SMOKE_LABEL")" || status=1
+  for container in $containers; do
+    if [ "$status" -ne 0 ]; then docker logs "$container" >&2 || true; fi
+    docker rm -f "$container" >/dev/null || status=1
+  done
+  volumes="$(docker volume ls -q --filter "label=$SMOKE_LABEL")" || status=1
+  for volume in $volumes; do docker volume rm "$volume" >/dev/null || status=1; done
+  rm -rf "$SMOKE_DIR"
+  exit "$status"
 }
 
 FLAVORS=("${@:-code}")
@@ -228,7 +236,12 @@ for flavor in "${FLAVORS[@]}"; do
   esac
 done
 
+SMOKE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/workspace-smoke.XXXXXXXXXX")"
+SMOKE_LABEL="workspace.smoke=${SMOKE_DIR##*/}"
 trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 build_flavors "${FLAVORS[@]}"
 
@@ -240,6 +253,17 @@ for flavor in "${FLAVORS[@]}"; do
     *) echo "Unsupported flavor: $flavor" >&2; exit 1 ;;
   esac
 done
+
+# All flavors share the runtime layer; full also exercises Jupyter when available.
+lifecycle_flavor="${FLAVORS[0]}"
+for flavor in "${FLAVORS[@]}"; do
+  if [ "$flavor" = full ]; then lifecycle_flavor=full; fi
+done
+if bash "$SCRIPT_DIR/test-lifecycle.sh" "$(image_for "$lifecycle_flavor")"; then
+  pass "$lifecycle_flavor service lifecycle"
+else
+  fail "$lifecycle_flavor service lifecycle"
+fi
 
 header "Results"
 echo -e "  ${GREEN}${PASS} passed${NC}, ${RED}${FAIL} failed${NC}"

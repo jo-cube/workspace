@@ -31,7 +31,7 @@ jobs:
 
       - name: Check shell scripts
         run: |
-          for script in scripts/doctor.sh scripts/smoke-test.sh; do
+          for script in scripts/doctor.sh scripts/smoke-test.sh scripts/test-lifecycle.sh; do
             bash -n "$script"
           done
           for script in scripts/healthcheck.sh config/cont-init.d/* config/s6/*/run; do
