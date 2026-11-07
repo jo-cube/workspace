@@ -78,10 +78,18 @@ PASSWORD='change-me'
 JUPYTER_TOKEN='change-me-too'
 ```
 
-This optional shell-format file is gitignored, excluded from the build
+This optional, trusted shell-format file is gitignored, excluded from the build
 context, and mounted read-only at `/etc/workspace/config.env`. Quote values
 so shell metacharacters stay literal. A deployment can mount it elsewhere
-and set `WORKSPACE_CONFIG_FILE` to that container path.
+and set `WORKSPACE_CONFIG_FILE` to that container path. An explicitly selected
+unreadable file prevents the application from starting.
+
+Non-empty environment values override the same variable in this file; empty
+values leave file credentials in effect. code-server gives `HASHED_PASSWORD`
+priority over `PASSWORD`, even when the password came from the environment and
+the hash came from a file. Its native `config.yaml` hashes also take priority;
+remove an existing hash when switching to a plaintext password. Jupyter uses
+the non-empty environment token before the file token.
 
 ## Persistent data
 

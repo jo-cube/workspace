@@ -12,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-workspace-test}"
 SMOKE_HOME_VOLUME=
+SMOKE_ENTERPRISE_IMAGE=
 
 PASS=0
 FAIL=0
@@ -85,6 +86,131 @@ wait_for_health() {
   return 1
 }
 
+check_code_login() {
+  local cid="$1" password="$2" rejected="$3"
+  docker exec "$cid" sh -eu -c '
+    url=http://127.0.0.1:8080/code
+    curl --noproxy "*" -fsS --max-time 10 -c /tmp/auth.cookies \
+      --data-urlencode "password=$2" --data-urlencode base=/code "$url/login" >/dev/null
+    test "$(curl --noproxy "*" -sS --max-time 10 -o /dev/null -w "%{http_code}" \
+      -b /tmp/auth.cookies "$url/?folder=/workspace")" = 302
+    test "$(curl --noproxy "*" -fsS --max-time 10 -o /dev/null -w "%{http_code}" \
+      -c /tmp/auth.cookies --data-urlencode "password=$1" --data-urlencode base=/code "$url/login")" = 302
+    test "$(curl --noproxy "*" -fsS --max-time 10 -o /dev/null -w "%{http_code}" \
+      -b /tmp/auth.cookies "$url/?folder=/workspace")" = 200
+  ' sh "$password" "$rejected"
+}
+
+test_code_auth() {
+  local img="$1" file_hash env_hash scenario credential expected rejected cid
+  header "Testing: code credential precedence"
+  # Fixed, non-secret Argon2 fixtures for "file-hash" and "env-hash".
+  file_hash="\$argon2id\$v=19\$m=65536,t=3,p=4\$aa3EIv12DYoR3LSkMRHc7Q\$GNNVar+4bNfOcaO1epPzHVanca+fBxisYS6VQD6Vfkg"
+  env_hash="\$argon2id\$v=19\$m=65536,t=3,p=4\$hpfJRzUYAbwgFwRwNzUJfQ\$pi9cxjPVzz3I6ujlPBw88yP3h2hxeFvjH3XvzhFGJIc"
+  for scenario in file environment file-hash environment-hash; do
+    printf "%s\n" "PASSWORD='file-password'" > "$SMOKE_DIR/auth.env"
+    credential=PASSWORD=
+    expected=file-password
+    rejected=incorrect
+    case "$scenario" in
+      environment) credential=PASSWORD=env-password; expected=env-password; rejected=file-password ;;
+      file-hash | environment-hash)
+        printf "HASHED_PASSWORD='%s'\n" "$file_hash" >> "$SMOKE_DIR/auth.env"
+        credential=PASSWORD=env-password; expected=file-hash; rejected=env-password
+        if [ "$scenario" = environment-hash ]; then
+          credential="HASHED_PASSWORD=$env_hash"; expected=env-hash; rejected=file-hash
+        fi
+        ;;
+    esac
+    cid="$(docker create --label "$SMOKE_LABEL" -e "$credential" \
+      -e WORKSPACE_CONFIG_FILE=/etc/workspace-test.env "$img")"
+    docker cp "$SMOKE_DIR/auth.env" "$cid:/etc/workspace-test.env"
+    docker start "$cid" >/dev/null
+    if wait_for_url "$cid" http://127.0.0.1:8080/code/login && check_code_login "$cid" "$expected" "$rejected"; then
+      pass "code-server accepts the intended $scenario credential and rejects the alternative"
+    else
+      fail "code-server $scenario credential precedence"
+    fi
+    docker rm -f "$cid" >/dev/null
+  done
+}
+
+test_jupyter_auth() {
+  local img="$1" cid token expected rejected
+  header "Testing: Jupyter credential precedence"
+  printf "%s\n" "JUPYTER_TOKEN='file-token'" > "$SMOKE_DIR/jupyter.env"
+  for token in '' env-token; do
+    expected="${token:-file-token}"
+    rejected=incorrect
+    [ -z "$token" ] || rejected=file-token
+    cid="$(docker create --label "$SMOKE_LABEL" \
+      --mount "type=volume,src=${SMOKE_HOME_VOLUME},dst=/home/dev" \
+      -e "JUPYTER_TOKEN=$token" -e WORKSPACE_CONFIG_FILE=/etc/workspace-test.env "$img")"
+    docker cp "$SMOKE_DIR/jupyter.env" "$cid:/etc/workspace-test.env"
+    docker start "$cid" >/dev/null
+    if wait_for_url "$cid" http://127.0.0.1:8080/lab/login && docker exec "$cid" sh -eu -c '
+      url=http://127.0.0.1:8080/lab/api/kernelspecs
+      test "$(curl --noproxy "*" -sS --max-time 5 -o /dev/null -w "%{http_code}" "$url")" = 403
+      test "$(curl --noproxy "*" -sS --max-time 5 -o /dev/null -w "%{http_code}" \
+        -H "Authorization: token $2" "$url")" = 403
+      curl --noproxy "*" -fsS --max-time 5 -H "Authorization: token $1" "$url" |
+        jq -e ".kernelspecs | has(\"python3\")" >/dev/null
+    ' sh "$expected" "$rejected"; then
+      pass "Jupyter accepts $expected and rejects missing/incorrect tokens"
+    else
+      fail "Jupyter token precedence and authentication"
+    fi
+    docker rm -f "$cid" >/dev/null
+  done
+}
+
+test_enterprise_proxy() {
+  local base="$1"
+  header "Testing: enterprise shell proxy configuration"
+  SMOKE_ENTERPRISE_IMAGE="$IMAGE_REGISTRY/enterprise:${SMOKE_DIR##*/}"
+  # The smoke base lives in the daemon's image store, not a remote Buildx builder.
+  BUILDX_BUILDER='' docker build --build-arg BASE_IMAGE="$base" \
+    --tag "$SMOKE_ENTERPRISE_IMAGE" "$ROOT_DIR/templates/enterprise"
+  if docker run --rm -i --label "$SMOKE_LABEL" --entrypoint sh "$SMOKE_ENTERPRISE_IMAGE" -s <<'EOF'
+set -eu
+printf '%s\n' 'HTTP_PROXY=http://proxy.invalid:8080' 'http_proxy=http://proxy.invalid:8080' \
+  'NO_PROXY=localhost,127.0.0.1' 'no_proxy=localhost,127.0.0.1' \
+  'PROXY_READS=$(( ${PROXY_READS:-0} + 1 ))' > /etc/enterprise/proxy.env
+mkdir /tmp/existing-home
+for file in .bash_profile .bashrc .zprofile .zshrc; do
+  printf '%s\n' 'export USER_PROXY_RC=loaded' 'export HTTP_PROXY=http://user.invalid:8080' \
+    > "/tmp/existing-home/$file"
+done
+chown -R dev:dev /tmp/existing-home
+before="$(sha256sum /tmp/existing-home/.bash* /tmp/existing-home/.z*)"
+for shell in bash zsh; do
+  for mode in -lc -ic -lic; do
+    /command/s6-setuidgid dev env -u HTTP_PROXY -u http_proxy -u NO_PROXY -u no_proxy \
+      -u PROXY_READS -u USER_PROXY_RC HOME=/tmp/existing-home "$shell" "$mode" '
+        test "$(printenv PROXY_READS)" = 1 &&
+        test "$(printenv USER_PROXY_RC)" = loaded &&
+        test "$(printenv HTTP_PROXY)" = http://user.invalid:8080 &&
+        test "$(printenv http_proxy)" = http://proxy.invalid:8080 &&
+        test "$(printenv NO_PROXY)" = localhost,127.0.0.1 &&
+        test "$(printenv no_proxy)" = localhost,127.0.0.1
+      '
+  done
+  /command/s6-setuidgid dev env -u PROXY_READS -u USER_PROXY_RC \
+    HOME=/tmp/existing-home HTTP_PROXY=http://inherited.invalid:8080 "$shell" -c '
+      test "${PROXY_READS-unset}" = unset &&
+      test "${USER_PROXY_RC-unset}" = unset &&
+      test "$(printenv HTTP_PROXY)" = http://inherited.invalid:8080
+    '
+done
+test "$before" = "$(sha256sum /tmp/existing-home/.bash* /tmp/existing-home/.z*)"
+EOF
+  then
+    pass "enterprise proxy loads once, preserves user startup files, and leaves non-interactive shells unchanged"
+  else
+    fail "enterprise shell proxy configuration"
+  fi
+}
+
 test_code() {
   local img cid
   img="$(image_for code)"
@@ -121,20 +247,7 @@ test_code() {
   fi
   docker rm -f "$cid" &>/dev/null || true
 
-  header "Testing: code auth"
-  cid="$(docker run -d --label "$SMOKE_LABEL" -e PASSWORD=smoke "$img")"
-  wait_for_url "$cid" http://127.0.0.1:8080/code/ || true
-  if docker exec "$cid" sh -lc "if curl -fsSI --max-time 5 http://127.0.0.1:8080/code/ | grep -qi '^www-authenticate:'; then exit 1; fi" &>/dev/null; then
-    pass "code-server auth headers"
-  else
-    fail "code-server auth headers"
-  fi
-  if docker exec "$cid" sh -lc "curl -fsSL --max-time 5 http://127.0.0.1:8080/code/ | grep -qi password" &>/dev/null; then
-    pass "code-server serves built-in auth page"
-  else
-    fail "code-server serves built-in auth page"
-  fi
-  docker rm -f "$cid" &>/dev/null || true
+  test_code_auth "$img"
 }
 
 test_platform() {
@@ -162,7 +275,7 @@ test_platform() {
 }
 
 test_full() {
-  local img cid
+  local img
   img="$(image_for full)"
   header "Testing: full"
 
@@ -189,27 +302,7 @@ test_full() {
   run_home_check "$img" "Go kernel executes" "/opt/uv-tools/jupyterlab/bin/python -c 'import json; json.dump({\"cells\":[{\"cell_type\":\"code\",\"execution_count\":None,\"id\":\"gonb-smoke\",\"metadata\":{},\"outputs\":[],\"source\":[\"%%\\n\",\"fmt.Println(2 + 2)\\n\"]}],\"metadata\":{\"kernelspec\":{\"display_name\":\"Go (gonb)\",\"language\":\"go\",\"name\":\"gonb\"}},\"nbformat\":4,\"nbformat_minor\":5}, open(\"/tmp/gonb-smoke.ipynb\", \"w\"))' && /opt/uv-tools/jupyterlab/bin/jupyter execute /tmp/gonb-smoke.ipynb"
   run_home_check "$img" "Kotlin kernel executes" "/opt/uv-tools/jupyterlab/bin/python -c 'import json; json.dump({\"cells\":[{\"cell_type\":\"code\",\"execution_count\":None,\"id\":\"kotlin-smoke\",\"metadata\":{},\"outputs\":[],\"source\":[\"check(2 + 2 == 4)\\n\"]}],\"metadata\":{\"kernelspec\":{\"display_name\":\"Kotlin\",\"language\":\"kotlin\",\"name\":\"kotlin\"}},\"nbformat\":4,\"nbformat_minor\":5}, open(\"/tmp/kotlin-smoke.ipynb\", \"w\"))' && /opt/uv-tools/jupyterlab/bin/jupyter execute /tmp/kotlin-smoke.ipynb"
 
-  header "Testing: full services and auth"
-  cid="$(docker run -d --label "$SMOKE_LABEL" \
-    --mount "type=volume,src=${SMOKE_HOME_VOLUME},dst=/home/dev" \
-    -e JUPYTER_TOKEN=smoke "$img")"
-  wait_for_url "$cid" http://127.0.0.1:8080/lab || true
-  if wait_for_health "$cid"; then
-    pass "Docker healthcheck covers enabled services"
-  else
-    fail "Docker healthcheck covers enabled services"
-  fi
-  if docker exec "$cid" sh -lc "curl -fsS -D - -o /dev/null --max-time 5 http://127.0.0.1:8080/lab | grep -q '^HTTP/.* 302'" &>/dev/null; then
-    pass "JupyterLab requires authentication"
-  else
-    fail "JupyterLab requires authentication"
-  fi
-  if docker exec "$cid" sh -lc "curl -fsSL --max-time 5 http://127.0.0.1:8080/lab | grep -Eqi 'password|token'" &>/dev/null; then
-    pass "JupyterLab serves built-in auth page"
-  else
-    fail "JupyterLab serves built-in auth page"
-  fi
-  docker rm -f "$cid" &>/dev/null || true
+  test_jupyter_auth "$img"
 }
 
 cleanup() {
@@ -223,6 +316,9 @@ cleanup() {
   done
   volumes="$(docker volume ls -q --filter "label=$SMOKE_LABEL")" || status=1
   for volume in $volumes; do docker volume rm "$volume" >/dev/null || status=1; done
+  if [ -n "$SMOKE_ENTERPRISE_IMAGE" ] && docker image inspect "$SMOKE_ENTERPRISE_IMAGE" >/dev/null 2>&1; then
+    docker image rm --no-prune "$SMOKE_ENTERPRISE_IMAGE" >/dev/null || status=1
+  fi
   rm -rf "$SMOKE_DIR"
   exit "$status"
 }
@@ -264,6 +360,8 @@ if bash "$SCRIPT_DIR/test-lifecycle.sh" "$(image_for "$lifecycle_flavor")"; then
 else
   fail "$lifecycle_flavor service lifecycle"
 fi
+
+test_enterprise_proxy "$(image_for "$lifecycle_flavor")"
 
 header "Results"
 echo -e "  ${GREEN}${PASS} passed${NC}, ${RED}${FAIL} failed${NC}"

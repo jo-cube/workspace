@@ -17,7 +17,7 @@ if it is missing locally. `just up` always rebuilds before starting.
 
 ## CA certificates
 
-Place `.crt` files in `config/ca-certificates/`. They are added to the system trust store at build time.
+Place `.crt` files in `config/ca-certificates/`. They are added to the system trust store at build time. Rebuild after changing certificates; the Compose configuration mount does not refresh system trust. Clients with their own trust store, such as the SDKMAN JDK, require separate trust configuration.
 
 ```bash
 config/ca-certificates/
@@ -45,7 +45,16 @@ https_proxy=http://proxy.internal.example.com:8080
 no_proxy=localhost,127.0.0.1,.internal.example.com
 ```
 
-`just build` passes proxy variables to Docker buildx bake. `docker compose` also loads this file at runtime. Do not put proxy credentials in this file.
+`just build` sources this file for build proxy arguments. Compose injects it
+into the container environment. Bash and zsh login and interactive shells also
+source `/etc/enterprise/proxy.env`, including with an existing home volume;
+assignments in that file override inherited shell values. Later user startup
+files can override these defaults. Shells that disable startup files opt out.
+
+Outside Compose, pass `--env-file config/proxy.env` to `docker run` when services
+or non-login, non-interactive commands need proxy variables. Use trusted
+assignment-only content compatible with shell and env-file syntax, and keep
+proxy credentials out of it.
 
 ## Workspace authentication
 
@@ -59,11 +68,16 @@ JUPYTER_TOKEN='change-me-too'
 
 The directory is gitignored, excluded from the Docker build context, and
 mounted read-only at `/etc/workspace/`. Compose publishes to host loopback by
-default; keep that boundary for passwordless use.
+default; keep that boundary for passwordless use. Non-empty environment values
+override matching file variables, but code-server hashes take priority over
+plaintext passwords across sources. Empty environment values do not clear file
+credentials.
 
 ## Git
 
-Edit `config/git/gitconfig` for enterprise defaults:
+Edit `config/git/gitconfig` for enterprise defaults and rebuild to update
+`/etc/gitconfig`. Mounting `config/` does not replace this system file. Normal
+Git user and repository configuration can override these defaults:
 
 ```ini
 [http]
