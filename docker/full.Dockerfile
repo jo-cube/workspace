@@ -7,14 +7,6 @@ FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
 
-# Pinned versions
-ARG GITLEAKS_VERSION=8.30.1
-ARG HYPERFINE_VERSION=1.20.0
-ARG TRIVY_VERSION=0.71.2
-ARG GONB_VERSION=v0.11.4
-ARG GO_TOOLS_VERSION=v0.48.0
-ARG GOPLS_VERSION=v0.21.1
-
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Tool-specific arch mapping (appended to /etc/arch-env from base/platform)
@@ -41,6 +33,9 @@ RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
   && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install
 
 USER root
+ARG GONB_VERSION=v0.11.4
+ARG GO_TOOLS_VERSION=v0.48.0
+ARG GOPLS_VERSION=v0.21.1
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked,uid=1000,gid=1000 \
     set -eux; \
@@ -62,20 +57,29 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       gdb strace ltrace valgrind tcpdump sqlite3
 
 # trivy
+ARG TRIVY_VERSION=0.71.2
 RUN set -eux; \
     source /etc/arch-env; \
+    cd /tmp; \
+    archive="trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz"; \
     curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 2 \
-      "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz" \
-      -o /tmp/trivy.tar.gz; \
-    tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy; \
-    rm /tmp/trivy.tar.gz
+      "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${archive}" \
+      -o "$archive"; \
+    curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 2 \
+      "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_checksums.txt" \
+      -o trivy-checksums.txt; \
+    awk -v archive="$archive" '$2 == archive' trivy-checksums.txt | sha256sum --check; \
+    tar -xzf "$archive" -C /usr/local/bin trivy; \
+    rm "$archive" trivy-checksums.txt
 
 # gitleaks
+ARG GITLEAKS_VERSION=8.30.1
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked \
     GOBIN=/usr/local/bin go install github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}
 
 # hyperfine
+ARG HYPERFINE_VERSION=1.20.0
 RUN set -eux; \
     source /etc/arch-env; \
     curl -fsSL "https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/hyperfine-v${HYPERFINE_VERSION}-${GNU_ARCH}-unknown-linux-gnu.tar.gz" \

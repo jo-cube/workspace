@@ -3,13 +3,11 @@
 # Supports: linux/amd64, linux/arm64
 
 ARG UBUNTU_VERSION=26.04
-ARG S6_OVERLAY_VERSION=3.2.3.0
 
 FROM caddy:2-alpine AS caddy-bin
 
 FROM ubuntu:${UBUNTU_VERSION}
 
-ARG S6_OVERLAY_VERSION
 ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -63,16 +61,21 @@ esac > /etc/arch-env
 EOF
 
 # s6-overlay
-RUN . /etc/arch-env \
-    && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --remove-on-error \
-       "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
-       -o /tmp/s6-noarch.tar.xz \
-    && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --remove-on-error \
-       "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${GNU_ARCH}.tar.xz" \
-       -o /tmp/s6-arch.tar.xz \
-    && tar -C / -Jxpf /tmp/s6-noarch.tar.xz \
-    && tar -C / -Jxpf /tmp/s6-arch.tar.xz \
-    && rm /tmp/s6-noarch.tar.xz /tmp/s6-arch.tar.xz
+ARG S6_OVERLAY_VERSION=3.2.3.0
+RUN set -eux; \
+    . /etc/arch-env; \
+    cd /tmp; \
+    for archive in s6-overlay-noarch.tar.xz "s6-overlay-${GNU_ARCH}.tar.xz"; do \
+      curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --remove-on-error \
+        "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/${archive}" \
+        -o "$archive"; \
+      curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --remove-on-error \
+        "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/${archive}.sha256" \
+        -o "${archive}.sha256"; \
+      sha256sum --check "${archive}.sha256"; \
+      tar -C / -Jxpf "$archive"; \
+      rm "$archive" "${archive}.sha256"; \
+    done
 
 # Caddy
 COPY --from=caddy-bin /usr/bin/caddy /usr/bin/caddy

@@ -3,9 +3,6 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
-ARG GO_VERSION=1.26.4
-ARG NODE_VERSION=24.18.0
-ARG NPM_VERSION=11.18.0
 
 ENV UV_TOOL_DIR=/opt/uv-tools \
     UV_TOOL_BIN_DIR=/opt/uv-tools/bin \
@@ -29,12 +26,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       gcc libc6-dev
 
 # Go
+ARG GO_VERSION=1.26.4
 RUN --mount=type=cache,target=/cache/go-downloads,sharing=locked \
     set -eux; \
-    curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" \
-      -o "/cache/go-downloads/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz"; \
+    archive="go${GO_VERSION}.linux-${TARGETARCH}.tar.gz"; \
+    checksum="$(curl -fsSL 'https://go.dev/dl/?mode=json&include=all' \
+      | jq -er --arg filename "$archive" '.[] | .files[] | select(.filename == $filename) | .sha256')"; \
+    cd /cache/go-downloads; \
+    if ! printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check --status; then \
+      curl -fsSL --retry 5 --retry-all-errors --remove-on-error \
+        "https://go.dev/dl/${archive}" -o "$archive"; \
+      printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check; \
+    fi; \
     rm -rf /usr/local/go; \
-    tar -C /usr/local -xzf "/cache/go-downloads/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz"
+    tar -C /usr/local -xzf "$archive"
 
 # Python via uv
 RUN mkdir -p /opt/uv-python && chown dev:dev /opt/uv-python
@@ -51,7 +56,7 @@ RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
 
 # JVM via SDKMAN
 RUN --mount=type=cache,target=/opt/sdkman/archives,sharing=locked \
-    curl -s "https://get.sdkman.io" | bash \
+    curl -fsSL "https://get.sdkman.io?rcupdate=false" | bash \
     && bash -lc 'source "$SDKMAN_DIR/bin/sdkman-init.sh" \
     && sdk install java 25.0.3-tem \
     && sdk install kotlin \
@@ -63,6 +68,8 @@ RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-to
     && "$CARGO_HOME/bin/rustup" component add clippy rustfmt
 
 # Node.js via fnm
+ARG NODE_VERSION=24.18.0
+ARG NPM_VERSION=11.18.0
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir /opt/fnm --skip-shell \
     && /opt/fnm/fnm install ${NODE_VERSION} \
     && PATH="/opt/fnm/aliases/default/bin:${PATH}" npm install --global --no-audit --no-fund npm@${NPM_VERSION} \
