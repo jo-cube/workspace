@@ -27,14 +27,31 @@ git push origin v1.2.3
 The release workflow verifies that the tagged commit is reachable from
 `origin/main` before publishing. It also:
 
-- builds the inherited `full` image on the native runner for scanning;
-- reports fixed Critical vulnerabilities with Trivy without blocking publication;
-- publishes `linux/amd64` and `linux/arm64` images; and
-- attaches BuildKit provenance and an SBOM to each published image.
+- builds all three flavors once for `linux/amd64` and `linux/arm64`, with
+  BuildKit provenance and SBOM attestations;
+- pushes run-scoped `<flavor>-candidate-<run-id>-<attempt>` tags and records their
+  immutable index digests;
+- pulls each platform by digest, scans `full`, and runs the existing smoke suite
+  with `--no-build all`, including application authentication, kernels, and lifecycle;
+- promotes those same indexes to the release tags only after both platforms pass.
 
-These checks make a release a reviewed, traceable artifact. They do not claim
-that builds are byte-for-byte reproducible: several upstream installers and
-base package repositories still resolve content at build time.
+AMD64 validation runs natively on `ubuntu-latest`; ARM64 builds and tests use
+QEMU. Emulation checks the ARM64 binaries and userspace, but does not establish
+native ARM hardware behavior or performance. The existing registry caches are
+reused; validation does not rebuild the toolchain layers.
+
+Trivy reports fixed Critical vulnerabilities without blocking promotion, as
+before. Scanner errors, failed database downloads, build failures, and smoke
+failures block all release-tag updates. Candidate tags may remain after a failed
+run and are not validated releases. Promotion copies the complete indexes,
+preserving their platform manifests and attestation references, without rebuilding.
+Smoke checks exercise the two runnable platform variants; they do not verify
+provenance or SBOM contents.
+Registry tag updates are not transactional: a promotion error can leave some
+tags updated, but every promoted artifact has passed validation.
+
+These checks do not claim byte-for-byte reproducibility: several upstream
+installers and base package repositories still resolve content at build time.
 
 Stable tags publish:
 
@@ -43,6 +60,11 @@ code-1.2.3, code-1.2, code-1, code-latest
 platform-1.2.3, platform-1.2, platform-1, platform-latest
 full-1.2.3, full-1.2, full-1, full-latest, latest
 ```
+
+Release runs share one queue to prevent interleaved tag updates across versions.
+The queue does not sort by SemVer. Every rerun builds and validates a fresh
+candidate; rerunning an older stable tag can move shared aliases backward and
+replace its exact version tags if upstream build inputs have changed.
 
 ## Pre-releases
 
@@ -79,6 +101,18 @@ full-patch-<branch>-<short-sha>
 Patch images are for validation only. They do not update stable or latest tags.
 They include BuildKit provenance and an SBOM, while the branch CI smoke-tests
 the `code` flavor.
+
+## Candidate retention
+
+Candidate tags accumulate after both successful and failed runs. Successful
+candidates share a GHCR package version with release tags; deleting that
+version also removes the released artifact. Retain these versions.
+
+For conservative manual cleanup, review candidate-only root index versions
+from completed runs older than 30 days and delete only versions whose non-empty
+tag list contains only candidate tags. Preserve every version with another tag,
+and never bulk-delete untagged versions: retained indexes reference untagged platform
+and attestation manifests. The workflow performs no registry deletion.
 
 ## Notes
 

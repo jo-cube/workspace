@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Build and sanity-check the supported workspace images.
+# --no-build requires existing local images named <IMAGE_REGISTRY>/workspace:<flavor>-smoke.
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -182,7 +183,9 @@ for file in .bash_profile .bashrc .zprofile .zshrc; do
     > "/tmp/existing-home/$file"
 done
 chown -R dev:dev /tmp/existing-home
-before="$(sha256sum /tmp/existing-home/.bash* /tmp/existing-home/.z*)"
+set -- /tmp/existing-home/.bash_profile /tmp/existing-home/.bashrc \
+  /tmp/existing-home/.zprofile /tmp/existing-home/.zshrc
+before="$(sha256sum "$@")"
 for shell in bash zsh; do
   for mode in -lc -ic -lic; do
     /command/s6-setuidgid dev env -u HTTP_PROXY -u http_proxy -u NO_PROXY -u no_proxy \
@@ -202,7 +205,7 @@ for shell in bash zsh; do
       test "$(printenv HTTP_PROXY)" = http://inherited.invalid:8080
     '
 done
-test "$before" = "$(sha256sum /tmp/existing-home/.bash* /tmp/existing-home/.z*)"
+test "$before" = "$(sha256sum "$@")"
 EOF
   then
     pass "enterprise proxy loads once, preserves user startup files, and leaves non-interactive shells unchanged"
@@ -323,6 +326,11 @@ cleanup() {
   exit "$status"
 }
 
+BUILD_IMAGES=true
+if [ "${1:-}" = --no-build ]; then
+  BUILD_IMAGES=false
+  shift
+fi
 FLAVORS=("${@:-code}")
 [[ "${FLAVORS[0]}" == all ]] && FLAVORS=(code platform full)
 for flavor in "${FLAVORS[@]}"; do
@@ -339,7 +347,11 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-build_flavors "${FLAVORS[@]}"
+if [ "$BUILD_IMAGES" = true ]; then
+  build_flavors "${FLAVORS[@]}"
+else
+  for flavor in "${FLAVORS[@]}"; do docker image inspect "$(image_for "$flavor")" >/dev/null; done
+fi
 
 for flavor in "${FLAVORS[@]}"; do
   case "$flavor" in

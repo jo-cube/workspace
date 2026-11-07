@@ -132,6 +132,7 @@ For repository changes, run:
 ```bash
 python3 -m unittest discover -s tests -v  # recipe behavior and Compose/Bake agreement
 ./scripts/smoke-test.sh all              # build and exercise every image, lifecycle, and kernel
+./scripts/smoke-test.sh --no-build all   # exercise existing <flavor>-smoke images without rebuilding them
 bash scripts/test-lifecycle.sh IMAGE     # lifecycle checks only, using an existing local image
 ```
 
