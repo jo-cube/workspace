@@ -48,6 +48,8 @@ s6-overlay supervises:
 - code-server on `127.0.0.1:8081`
 - JupyterLab on `127.0.0.1:8888` in `full`
 
+Each service depends on s6-overlay's `base` bundle, so legacy
+`cont-init.d/00-fix-perms` completes before any service starts.
 Disabled optional services idle without exposing a port.
 Docker health status probes Caddy and every service enabled for the selected
 image, so a failed browser application cannot leave the container healthy.

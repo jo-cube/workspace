@@ -25,7 +25,7 @@ BASE_IMAGE=ghcr.io/jo-cube/workspace:full-latest just build
 | Feature | Path / mechanism |
 |---------|-----------------|
 | CA certificates | `config/ca-certificates/*.crt` → system trust store |
-| Proxy config | `config/proxy.env` → build args, compose env, login shells |
+| Proxy config | `config/proxy.env` → build args, Compose env, Bash/zsh login and interactive shells |
 | Git defaults | `config/git/gitconfig` → `/etc/gitconfig` |
 | Enterprise tools | Small Dockerfile additions |
 | Registry config | `config/registry/` → `/etc/enterprise/registry/` |

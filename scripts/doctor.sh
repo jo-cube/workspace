@@ -53,8 +53,6 @@ command -v uv &>/dev/null && pass "uv $(uv --version 2>&1 | cut -d' ' -f2)" || w
 command -v ipython &>/dev/null && pass "ipython $(ipython --version 2>&1)" || warn "ipython not installed"
 if command -v python3 &>/dev/null; then
   pass "python3 $(python3 --version 2>&1 | cut -d' ' -f2)"
-elif command -v uv &>/dev/null && uv python find 3.14 &>/dev/null; then
-  pass "python $(uv run --python 3.14 python --version 2>&1 | cut -d' ' -f2) via uv"
 else
   warn "python not installed"
 fi

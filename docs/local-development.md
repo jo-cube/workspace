@@ -78,10 +78,18 @@ PASSWORD='change-me'
 JUPYTER_TOKEN='change-me-too'
 ```
 
-This optional shell-format file is gitignored, excluded from the build
+This optional, trusted shell-format file is gitignored, excluded from the build
 context, and mounted read-only at `/etc/workspace/config.env`. Quote values
 so shell metacharacters stay literal. A deployment can mount it elsewhere
-and set `WORKSPACE_CONFIG_FILE` to that container path.
+and set `WORKSPACE_CONFIG_FILE` to that container path. An explicitly selected
+unreadable file prevents the application from starting.
+
+Non-empty environment values override the same variable in this file; empty
+values leave file credentials in effect. code-server gives `HASHED_PASSWORD`
+priority over `PASSWORD`, even when the password came from the environment and
+the hash came from a file. Its native `config.yaml` hashes also take priority;
+remove an existing hash when switching to a plaintext password. Jupyter uses
+the non-empty environment token before the file token.
 
 ## Persistent data
 
@@ -123,11 +131,20 @@ For repository changes, run:
 
 ```bash
 python3 -m unittest discover -s tests -v  # recipe behavior and Compose/Bake agreement
-./scripts/smoke-test.sh all              # build and exercise every image and kernel
+./scripts/smoke-test.sh all              # build and exercise every image, lifecycle, and kernel
+./scripts/smoke-test.sh --no-build all   # exercise existing <flavor>-smoke images without rebuilding them
+bash scripts/test-lifecycle.sh IMAGE     # lifecycle checks only, using an existing local image
 ```
 
 The recipe tests require Python 3, Just, and the Docker CLI; they do not need
 a running Docker daemon. Smoke tests use isolated containers and volumes.
+The smoke suite runs the shared lifecycle check once, using `full` when selected
+to include Jupyter. It gates permission initialization with empty, root-owned
+home/cache volumes, verifies configuration survives reuse, exercises health and
+crash recovery, and checks shutdown with Docker's default 10-second stop budget.
+Health polling is shortened only in test containers. Both scripts clean up their
+own labeled containers and volumes on exit, including HUP, INT, and TERM; they
+retain images and build caches for reuse.
 
 ## Jupyter kernels
 

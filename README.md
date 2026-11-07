@@ -55,7 +55,7 @@ Open:
 | Image | Contents |
 |-------|----------|
 | `code` | Ubuntu 26.04, core CLI tools, Caddy, s6-overlay, and code-server |
-| `platform` | `code` plus Python 3.14, Java 25, Kotlin, Gradle, Go, Rust, Node.js, and platform tools |
+| `platform` | `code` plus Python 3.15, Java 25, Kotlin, Gradle, Go, Rust, Node.js, and platform tools |
 | `full` | `platform` plus JupyterLab, multi-language kernels, debugging, and security tools |
 
 The `*-core` Bake targets are internal build layers, not supported runtime

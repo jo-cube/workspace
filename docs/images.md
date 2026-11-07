@@ -22,11 +22,11 @@ Includes:
 
 Everything in `code` plus:
 
-- Python 3.14 via uv
-- Java 25, Kotlin, and Gradle via SDKMAN
-- Go 1.26
+- Python 3.15 via uv
+- Java 25 (Temurin), Kotlin, and Gradle via SDKMAN
+- Go 1.27
 - Rust stable
-- Node.js 24
+- Node.js 26
 - Kubernetes tools: kubectl, Helm, k9s, stern, kubectx, kubens
 - HTTP/gRPC/WebSocket clients: curl, xh, grpcurl, websocat
 - PostgreSQL, Redis, DuckDB, Kafka, S3, and RocksDB clients

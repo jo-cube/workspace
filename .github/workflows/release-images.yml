@@ -10,7 +10,9 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-images-${{ github.ref }}
+  # Different release versions update the same moving aliases.
+  group: release-images
+  queue: max
   cancel-in-progress: false
 
 env:
@@ -64,93 +66,88 @@ jobs:
             echo "minor_version=$minor_version"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Write bake tag override
-        run: |
-          set -euo pipefail
-          version="${{ steps.meta.outputs.version }}"
-          prerelease="${{ steps.meta.outputs.prerelease }}"
-          major="${{ steps.meta.outputs.major }}"
-          minor_version="${{ steps.meta.outputs.minor_version }}"
-
-          tags_for() {
-            flavor="$1"
-            printf '"%s:%s-%s"' "$IMAGE" "$flavor" "$version"
-            if [ "$prerelease" = "false" ]; then
-              printf ', "%s:%s-%s", "%s:%s-%s", "%s:%s-latest"' \
-                "$IMAGE" "$flavor" "$minor_version" \
-                "$IMAGE" "$flavor" "$major" \
-                "$IMAGE" "$flavor"
-            fi
-          }
-
-          {
-            echo 'target "code" {'
-            echo "  tags = [$(tags_for code)]"
-            echo "  platforms = [\"linux/amd64\", \"linux/arm64\"]"
-            echo "}"
-            echo 'target "platform" {'
-            echo "  tags = [$(tags_for platform)]"
-            echo "  platforms = [\"linux/amd64\", \"linux/arm64\"]"
-            echo "}"
-            echo 'target "full" {'
-            if [ "$prerelease" = "false" ]; then
-              echo "  tags = [$(tags_for full), \"$IMAGE:latest\"]"
-            else
-              echo "  tags = [$(tags_for full)]"
-            fi
-            echo "  platforms = [\"linux/amd64\", \"linux/arm64\"]"
-            echo "}"
-          } > /tmp/release-tags.hcl
-
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
         with:
           platforms: arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build release image for scanning
-        env:
-          REGISTRY: workspace-test
-          TAG: latest
-          CACHE_FROM: "true"
-          CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
-          CACHE_IMAGE: workspace-cache
-        run: docker buildx bake full
-
-      # full inherits every package in code and platform.
-      - name: Scan release image
-        run: |
-          docker run --rm \
-            --entrypoint /bin/sh \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
-            workspace-test/workspace:full-latest -c '
-              set -eu
-              trivy image --download-db-only --no-progress
-              trivy image --download-java-db-only --no-progress
-              trivy image \
-                --skip-db-update \
-                --skip-java-db-update \
-                --no-progress \
-                --exit-code 0 \
-                --ignore-unfixed \
-                --scanners vuln \
-                --severity CRITICAL \
-                workspace-test/workspace:full-latest
-            '
-
-      - name: Publish code, platform, and full
+      - name: Build release candidates
         env:
           PUBLISH: "true"
           REGISTRY: ghcr.io/${{ github.repository_owner }}
+          TAG: candidate-${{ github.run_id }}-${{ github.run_attempt }}
           CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}
           CACHE_IMAGE: workspace-cache
-        run: docker buildx bake -f docker-bake.hcl -f /tmp/release-tags.hcl code platform full --provenance=mode=max --sbom=true --push
+        run: |
+          set -euo pipefail
+          docker buildx bake all \
+            --set '*.platform=linux/amd64' --set '*.platform+=linux/arm64' \
+            --metadata-file "$RUNNER_TEMP/release-candidates.json" \
+            --provenance=mode=max --sbom=true --push
+
+      - name: Validate release candidates
+        env:
+          IMAGE_REGISTRY: workspace-release-test
+        run: |
+          set -euo pipefail
+          # AMD64 is native on ubuntu-latest; ARM64 uses the installed QEMU handler.
+          for arch in amd64 arm64; do
+            export DOCKER_DEFAULT_PLATFORM="linux/$arch"
+            for flavor in code platform full; do
+              digest="$(jq -er --arg flavor "$flavor" '.[$flavor]["containerimage.digest"]' "$RUNNER_TEMP/release-candidates.json")"
+              docker pull --platform "$DOCKER_DEFAULT_PLATFORM" "$IMAGE@$digest"
+              docker tag "$IMAGE@$digest" "$IMAGE_REGISTRY/workspace:$flavor-smoke"
+            done
+
+            # full inherits every package in code and platform. Findings remain advisory;
+            # database download and scanner errors still fail this step.
+            docker run --rm \
+              --entrypoint /bin/sh \
+              --volume /var/run/docker.sock:/var/run/docker.sock \
+              "$IMAGE_REGISTRY/workspace:full-smoke" -c '
+                set -eu
+                trivy image --download-db-only --no-progress
+                trivy image --download-java-db-only --no-progress
+                trivy image \
+                  --image-src docker --platform "$2" \
+                  --skip-db-update --skip-java-db-update \
+                  --no-progress --exit-code 0 --ignore-unfixed \
+                  --scanners vuln --severity CRITICAL "$1"
+              ' sh "$IMAGE_REGISTRY/workspace:full-smoke" "$DOCKER_DEFAULT_PLATFORM"
+
+            ./scripts/smoke-test.sh --no-build all
+
+            # Release validation is sequential; release the loaded platform's disk space.
+            for flavor in code platform full; do
+              docker image rm --no-prune "$IMAGE_REGISTRY/workspace:$flavor-smoke"
+            done
+          done
+
+      - name: Promote validated release indexes
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          MAJOR: ${{ steps.meta.outputs.major }}
+          MINOR_VERSION: ${{ steps.meta.outputs.minor_version }}
+        run: |
+          set -euo pipefail
+          for flavor in code platform full; do
+            digest="$(jq -er --arg flavor "$flavor" '.[$flavor]["containerimage.digest"]' "$RUNNER_TEMP/release-candidates.json")"
+            tags=(--tag "$IMAGE:$flavor-$VERSION")
+            if [ "$PRERELEASE" = false ]; then
+              tags+=(--tag "$IMAGE:$flavor-$MINOR_VERSION" --tag "$IMAGE:$flavor-$MAJOR" --tag "$IMAGE:$flavor-latest")
+              if [ "$flavor" = full ]; then tags+=(--tag "$IMAGE:latest"); fi
+            fi
+            # Copy the complete index, including both platforms and their attestations.
+            docker buildx imagetools create "${tags[@]}" "$IMAGE@$digest"
+          done

@@ -3,9 +3,6 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
-ARG GO_VERSION=1.26.4
-ARG NODE_VERSION=24.18.0
-ARG NPM_VERSION=11.18.0
 
 ENV UV_TOOL_DIR=/opt/uv-tools \
     UV_TOOL_BIN_DIR=/opt/uv-tools/bin \
@@ -29,12 +26,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       gcc libc6-dev
 
 # Go
+ARG GO_VERSION=1.27.3
 RUN --mount=type=cache,target=/cache/go-downloads,sharing=locked \
     set -eux; \
-    curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" \
-      -o "/cache/go-downloads/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz"; \
+    archive="go${GO_VERSION}.linux-${TARGETARCH}.tar.gz"; \
+    checksum="$(curl -fsSL 'https://go.dev/dl/?mode=json&include=all' \
+      | jq -er --arg filename "$archive" '.[] | .files[] | select(.filename == $filename) | .sha256')"; \
+    cd /cache/go-downloads; \
+    if ! printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check --status; then \
+      curl -fsSL --retry 5 --retry-all-errors --remove-on-error \
+        "https://go.dev/dl/${archive}" -o "$archive"; \
+      printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check; \
+    fi; \
     rm -rf /usr/local/go; \
-    tar -C /usr/local -xzf "/cache/go-downloads/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz"
+    tar -C /usr/local -xzf "$archive"
 
 # Python via uv
 RUN mkdir -p /opt/uv-python && chown dev:dev /opt/uv-python
@@ -43,19 +48,19 @@ ENV PATH="/opt/uv-tools/bin:${PATH}" \
     UV_PYTHON_INSTALL_DIR=/opt/uv-python \
     UV_PYTHON_BIN_DIR=/opt/uv-tools/bin
 RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
-    curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/opt/uv-tools/bin UV_NO_MODIFY_PATH=1 sh \
-    && uv python install 3.14 --default \
+    curl -LsSf https://astral.sh/uv/0.13.7/install.sh | env UV_INSTALL_DIR=/opt/uv-tools/bin UV_NO_MODIFY_PATH=1 sh \
+    && uv python install 3.15.2 --default \
     && uv tool install ipython \
     && uv tool install ruff \
     && uv tool install mypy
 
 # JVM via SDKMAN
 RUN --mount=type=cache,target=/opt/sdkman/archives,sharing=locked \
-    curl -s "https://get.sdkman.io" | bash \
+    curl -fsSL "https://get.sdkman.io?rcupdate=false" | bash \
     && bash -lc 'source "$SDKMAN_DIR/bin/sdkman-init.sh" \
-    && sdk install java 25.0.3-tem \
-    && sdk install kotlin \
-    && sdk install gradle' \
+    && sdk install java 25.0.5.0+8-tem \
+    && sdk install kotlin 2.4.21 \
+    && sdk install gradle 9.9.0' \
     && rm -rf "$SDKMAN_DIR/tmp"/*
 
 # Rust
@@ -63,11 +68,11 @@ RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-to
     && "$CARGO_HOME/bin/rustup" component add clippy rustfmt
 
 # Node.js via fnm
+ARG NODE_VERSION=26.13.0
+ARG NPM_VERSION=12.2.2
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir /opt/fnm --skip-shell \
     && /opt/fnm/fnm install ${NODE_VERSION} \
     && PATH="/opt/fnm/aliases/default/bin:${PATH}" npm install --global --no-audit --no-fund npm@${NPM_VERSION} \
-    && test "$(PATH="/opt/fnm/aliases/default/bin:${PATH}" node -p \
-      "require('/opt/fnm/aliases/default/lib/node_modules/npm/node_modules/tar/package.json').version")" = 7.5.19 \
     && rm -rf /home/dev/.npm
 
 ENV PATH="/usr/local/go/bin:${SDKMAN_DIR}/candidates/java/current/bin:${SDKMAN_DIR}/candidates/kotlin/current/bin:${SDKMAN_DIR}/candidates/gradle/current/bin:${CARGO_HOME}/bin:${FNM_DIR}/aliases/default/bin:${FNM_DIR}:${PATH}" \

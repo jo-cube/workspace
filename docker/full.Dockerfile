@@ -7,14 +7,6 @@ FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
 
-# Pinned versions
-ARG GITLEAKS_VERSION=8.30.1
-ARG HYPERFINE_VERSION=1.20.0
-ARG TRIVY_VERSION=0.71.2
-ARG GONB_VERSION=v0.11.4
-ARG GO_TOOLS_VERSION=v0.48.0
-ARG GOPLS_VERSION=v0.21.1
-
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Tool-specific arch mapping (appended to /etc/arch-env from base/platform)
@@ -31,16 +23,21 @@ EOF
 USER dev
 RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
     --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked,uid=1000,gid=1000 \
-    uv tool install jupyterlab \
-      --with bash_kernel \
-      --with kotlin-jupyter-kernel \
+    uv tool install jupyterlab==4.6.6 \
+      --with jupyter-server==2.21.1 \
+      --with ipykernel==7.4.0 \
+      --with bash_kernel==0.10.0 \
+      --with kotlin-jupyter-kernel==0.19.0.944 \
   && /opt/uv-tools/jupyterlab/bin/python -m bash_kernel.install --sys-prefix \
   && /opt/uv-tools/jupyterlab/bin/python -c 'import json,pathlib,sys; p=pathlib.Path(sys.prefix)/"share/jupyter/kernels/kotlin/kernel.json"; data=json.loads(p.read_text()); data["argv"][0]=sys.executable; data["metadata"]["jar_path_detect_command"][0]=sys.executable; p.write_text(json.dumps(data, indent=2)+"\n")' \
   && rustup component add rust-src \
-  && cargo install --locked --jobs 1 evcxr_jupyter \
+  && cargo install --locked --jobs 1 evcxr_jupyter --version 0.22.0 \
   && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install
 
 USER root
+ARG GONB_VERSION=v0.11.5
+ARG GO_TOOLS_VERSION=v0.52.0
+ARG GOPLS_VERSION=v0.24.0
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked,uid=1000,gid=1000 \
     set -eux; \
@@ -62,21 +59,39 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       gdb strace ltrace valgrind tcpdump sqlite3
 
 # trivy
+ARG TRIVY_VERSION=0.76.2
 RUN set -eux; \
     source /etc/arch-env; \
+    cd /tmp; \
+    archive="trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz"; \
     curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 2 \
-      "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz" \
-      -o /tmp/trivy.tar.gz; \
-    tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy; \
-    rm /tmp/trivy.tar.gz
+      "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${archive}" \
+      -o "$archive"; \
+    curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 2 \
+      "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_checksums.txt" \
+      -o trivy-checksums.txt; \
+    awk -v archive="$archive" '$2 == archive' trivy-checksums.txt | sha256sum --check; \
+    tar -xzf "$archive" -C /usr/local/bin trivy; \
+    rm "$archive" trivy-checksums.txt
 
 # gitleaks
+ARG GITLEAKS_VERSION=8.30.1
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked \
     GOBIN=/usr/local/bin go install github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}
 
-# hyperfine
+# Hyperfine (SHA256 digests published with the v2.0.0 release assets)
+ARG HYPERFINE_VERSION=2.0.0
 RUN set -eux; \
     source /etc/arch-env; \
-    curl -fsSL "https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/hyperfine-v${HYPERFINE_VERSION}-${GNU_ARCH}-unknown-linux-gnu.tar.gz" \
-      | tar -C /usr/local/bin --strip-components=1 -xz --wildcards "*/hyperfine"
+    case "$TARGETARCH" in \
+      amd64) checksum=ae2beda2ac99c098427e4f755244552daf20e514422889cca6d44421e2d93c87 ;; \
+      arm64) checksum=f8244d1e17f8da23ee6b3ae2cdc04a6a185a450f6b74e09bff12e498038fcbc9 ;; \
+    esac; \
+    cd /tmp; \
+    archive="hyperfine-v${HYPERFINE_VERSION}-${GNU_ARCH}-unknown-linux-gnu.tar.gz"; \
+    curl -fsSLo "$archive" \
+      "https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/${archive}"; \
+    printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check; \
+    tar -C /usr/local/bin --strip-components=1 -xz -f "$archive" --wildcards "*/hyperfine"; \
+    rm "$archive"
