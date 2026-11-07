@@ -124,7 +124,12 @@ for phase in fresh reused; do
       wait_until health_is unhealthy
       docker exec "$CID" /command/s6-svc -u "$path"
       wait_healthy
+      old_pgid="$(docker exec "$CID" /command/s6-svstat -o pgid "$path")"
+      test "$old_pgid" -gt 1
       docker exec "$CID" /command/s6-svc -wr -T 10000 -k "$path"
+      # code-server's orphaned child can serve healthz until it notices its parent died.
+      # Wait for the old process group to exit so health proves a replacement is serving.
+      wait_until docker exec "$CID" sh -c '! kill -0 "-$1" 2>/dev/null' sh "$old_pgid"
       wait_healthy
       echo "  $service: health detects outage; supervision recovers after crash"
     done
