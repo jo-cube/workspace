@@ -4,7 +4,7 @@
 
 ARG UBUNTU_VERSION=26.04
 
-FROM caddy:2-alpine AS caddy-bin
+FROM caddy:2.11.9-alpine AS caddy-bin
 
 FROM ubuntu:${UBUNTU_VERSION}
 
@@ -61,7 +61,7 @@ esac > /etc/arch-env
 EOF
 
 # s6-overlay
-ARG S6_OVERLAY_VERSION=3.2.3.0
+ARG S6_OVERLAY_VERSION=3.2.3.2
 RUN set -eux; \
     . /etc/arch-env; \
     cd /tmp; \

@@ -4,7 +4,7 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
-ARG CODE_SERVER_VERSION=4.126.0
+ARG CODE_SERVER_VERSION=4.145.2
 
 RUN curl -fsSL https://code-server.dev/install.sh | sh -s -- \
       --method=standalone --prefix=/usr/local --version=${CODE_SERVER_VERSION} \

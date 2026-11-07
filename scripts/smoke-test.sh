@@ -253,6 +253,22 @@ test_code() {
   test_code_auth "$img"
 }
 
+test_jvm_build() {
+  local img="$1" cid
+  header "Testing: Java/Kotlin/Gradle compatibility"
+  cid="$(docker create --label "$SMOKE_LABEL" -e HOME=/home/dev --entrypoint /bin/sh "$img" -eu -c '
+    chown -R dev:dev /tmp/jvm-smoke
+    exec /command/s6-setuidgid dev gradle --no-daemon --console=plain -p /tmp/jvm-smoke run
+  ')"
+  docker cp "$ROOT_DIR/tests/fixtures/jvm" "$cid:/tmp/jvm-smoke"
+  if docker start --attach "$cid"; then
+    pass "Gradle compiles and runs Java/Kotlin together on the image JDK"
+  else
+    fail "Java/Kotlin/Gradle compatibility"
+  fi
+  docker rm "$cid" >/dev/null
+}
+
 test_platform() {
   local img
   img="$(image_for platform)"
@@ -265,8 +281,11 @@ test_platform() {
   run_version "$img" "go" go version
   run_version "$img" "rustc" rustc --version
   run_version "$img" "node" node --version
+  run_version "$img" "npm" npm --version
   run_check "$img" "Python is image-owned" "test \"\$(uv python dir)\" = /opt/uv-python && test \"\$(command -v python)\" = /opt/uv-tools/bin/python"
   run_check "$img" "Python executes" "python -c 'assert 2 + 2 == 4'"
+  test_jvm_build "$img"
+  run_check "$img" "npm executes" "mkdir /tmp/npm-smoke && cd /tmp/npm-smoke && npm init --yes >/dev/null && node -e 'if (require(\"./package.json\").name !== \"npm-smoke\") process.exit(1)'"
   run_check "$img" "Kotlin executes" "kotlin -e 'check(2 + 2 == 4)'"
   run_check "$img" "Go executes" "printf 'package main\nfunc main() {}\n' >/tmp/main.go && go run /tmp/main.go"
   run_check "$img" "Rust executes" "printf 'fn main() { assert_eq!(2 + 2, 4); }\n' >/tmp/main.rs && rustc /tmp/main.rs -o /tmp/main && /tmp/main"
@@ -281,6 +300,7 @@ test_full() {
   local img
   img="$(image_for full)"
   header "Testing: full"
+  run_version "$img" "Trivy" trivy --version
 
   for cmd in jupyter-lab gdb strace ltrace valgrind tcpdump sqlite3 trivy gitleaks hyperfine; do
     run_check "$img" "$cmd exists" command -v "$cmd"
@@ -298,6 +318,7 @@ test_full() {
   run_home_check "$img" "Bash/Kotlin kernel modules import" "/opt/uv-tools/jupyterlab/bin/python -c 'import bash_kernel, run_kotlin_kernel'"
   run_home_check "$img" "Rust kernel exists" command -v evcxr_jupyter
   run_home_check "$img" "Go kernel exists" command -v gonb
+  run_version "$img" "gopls" gopls version
   run_home_check "$img" "Go kernel helpers exist" "command -v goimports && command -v gopls"
   run_home_check "$img" "Python kernel executes" "/opt/uv-tools/jupyterlab/bin/python -c 'import json; json.dump({\"cells\":[{\"cell_type\":\"code\",\"execution_count\":None,\"id\":\"python-smoke\",\"metadata\":{},\"outputs\":[],\"source\":[\"assert 2 + 2 == 4\\n\"]}],\"metadata\":{\"kernelspec\":{\"display_name\":\"Python 3\",\"language\":\"python\",\"name\":\"python3\"}},\"nbformat\":4,\"nbformat_minor\":5}, open(\"/tmp/python-smoke.ipynb\", \"w\"))' && /opt/uv-tools/jupyterlab/bin/jupyter execute /tmp/python-smoke.ipynb"
   run_home_check "$img" "Bash kernel executes" "/opt/uv-tools/jupyterlab/bin/python -c 'import json; json.dump({\"cells\":[{\"cell_type\":\"code\",\"execution_count\":None,\"id\":\"bash-smoke\",\"metadata\":{},\"outputs\":[],\"source\":[\"test \$((2 + 2)) -eq 4\\n\"]}],\"metadata\":{\"kernelspec\":{\"display_name\":\"Bash\",\"language\":\"bash\",\"name\":\"bash\"}},\"nbformat\":4,\"nbformat_minor\":5}, open(\"/tmp/bash-smoke.ipynb\", \"w\"))' && /opt/uv-tools/jupyterlab/bin/jupyter execute /tmp/bash-smoke.ipynb"

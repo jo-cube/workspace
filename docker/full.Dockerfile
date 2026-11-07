@@ -23,19 +23,21 @@ EOF
 USER dev
 RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
     --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked,uid=1000,gid=1000 \
-    uv tool install jupyterlab \
-      --with bash_kernel \
-      --with kotlin-jupyter-kernel \
+    uv tool install jupyterlab==4.6.6 \
+      --with jupyter-server==2.21.1 \
+      --with ipykernel==7.4.0 \
+      --with bash_kernel==0.10.0 \
+      --with kotlin-jupyter-kernel==0.19.0.944 \
   && /opt/uv-tools/jupyterlab/bin/python -m bash_kernel.install --sys-prefix \
   && /opt/uv-tools/jupyterlab/bin/python -c 'import json,pathlib,sys; p=pathlib.Path(sys.prefix)/"share/jupyter/kernels/kotlin/kernel.json"; data=json.loads(p.read_text()); data["argv"][0]=sys.executable; data["metadata"]["jar_path_detect_command"][0]=sys.executable; p.write_text(json.dumps(data, indent=2)+"\n")' \
   && rustup component add rust-src \
-  && cargo install --locked --jobs 1 evcxr_jupyter \
+  && cargo install --locked --jobs 1 evcxr_jupyter --version 0.22.0 \
   && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install
 
 USER root
-ARG GONB_VERSION=v0.11.4
-ARG GO_TOOLS_VERSION=v0.48.0
-ARG GOPLS_VERSION=v0.21.1
+ARG GONB_VERSION=v0.11.5
+ARG GO_TOOLS_VERSION=v0.52.0
+ARG GOPLS_VERSION=v0.24.0
 RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked,uid=1000,gid=1000 \
     set -eux; \
@@ -57,7 +59,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       gdb strace ltrace valgrind tcpdump sqlite3
 
 # trivy
-ARG TRIVY_VERSION=0.71.2
+ARG TRIVY_VERSION=0.76.2
 RUN set -eux; \
     source /etc/arch-env; \
     cd /tmp; \
