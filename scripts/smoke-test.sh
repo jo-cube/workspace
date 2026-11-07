@@ -285,6 +285,22 @@ test_platform() {
   run_check "$img" "Python is image-owned" "test \"\$(uv python dir)\" = /opt/uv-python && test \"\$(command -v python)\" = /opt/uv-tools/bin/python"
   run_check "$img" "Python executes" "python -c 'assert 2 + 2 == 4'"
   test_jvm_build "$img"
+  run_check "$img" "kubectl client dry run" "kubectl create configmap workspace-smoke --from-literal=answer=42 --dry-run=client -o json | jq -e '.data.answer == \"42\"'"
+  run_check "$img" "Helm renders a chart" "helm create /tmp/helm-smoke && helm lint /tmp/helm-smoke && helm template review /tmp/helm-smoke > /tmp/helm-smoke.yaml && yq ea -e 'select(.kind == \"Deployment\")' /tmp/helm-smoke.yaml"
+  run_check "$img" "DuckDB persists and queries data" "duckdb /tmp/smoke.duckdb -c 'CREATE TABLE t AS SELECT 42 AS answer;' && test \"\$(duckdb -csv -noheader /tmp/smoke.duckdb -c 'SELECT answer FROM t;')\" = 42"
+  run_check "$img" "grpcurl parses service descriptors" "printf '%s\n' 'syntax = \"proto3\"; package smoke; message Message {} service Echo { rpc Ping(Message) returns (Message); }' > /tmp/smoke.proto && grpcurl -import-path /tmp -proto smoke.proto describe smoke.Echo"
+  run_check "$img" "mc preserves configuration and administrative commands" '
+    set -eu
+    mkdir -p "$HOME/.mc"
+    cat > "$HOME/.mc/config.json" <<EOF
+{"version":"10","aliases":{"review":{"url":"http://127.0.0.1:9000","accessKey":"review-access","secretKey":"review-secret","api":"S3v4","path":"auto"}}}
+EOF
+    before=$(sha256sum "$HOME/.mc/config.json")
+    mc --json alias ls review | jq -e ".status == \"success\" and .URL == \"http://127.0.0.1:9000\""
+    test "$before" = "$(sha256sum "$HOME/.mc/config.json")"
+    mc admin user --help >/dev/null
+    mc admin policy --help >/dev/null
+  '
   run_check "$img" "npm executes" "mkdir /tmp/npm-smoke && cd /tmp/npm-smoke && npm init --yes >/dev/null && node -e 'if (require(\"./package.json\").name !== \"npm-smoke\") process.exit(1)'"
   run_check "$img" "Kotlin executes" "kotlin -e 'check(2 + 2 == 4)'"
   run_check "$img" "Go executes" "printf 'package main\nfunc main() {}\n' >/tmp/main.go && go run /tmp/main.go"
@@ -301,6 +317,7 @@ test_full() {
   img="$(image_for full)"
   header "Testing: full"
   run_version "$img" "Trivy" trivy --version
+  run_check "$img" "Hyperfine executes and exports JSON v2" "hyperfine --runs 2 --export-json /tmp/hyperfine.json true && jq -e '.schema_version == 2 and (.results[0].measurements | length) == 2 and .results[0].summary.time_wall_clock.count == 2' /tmp/hyperfine.json"
 
   for cmd in jupyter-lab gdb strace ltrace valgrind tcpdump sqlite3 trivy gitleaks hyperfine; do
     run_check "$img" "$cmd exists" command -v "$cmd"

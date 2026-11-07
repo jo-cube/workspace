@@ -80,9 +80,18 @@ RUN --mount=type=cache,target=/cache/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/home/dev/.cache/go-build,sharing=locked \
     GOBIN=/usr/local/bin go install github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}
 
-# hyperfine
-ARG HYPERFINE_VERSION=1.20.0
+# Hyperfine (SHA256 digests published with the v2.0.0 release assets)
+ARG HYPERFINE_VERSION=2.0.0
 RUN set -eux; \
     source /etc/arch-env; \
-    curl -fsSL "https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/hyperfine-v${HYPERFINE_VERSION}-${GNU_ARCH}-unknown-linux-gnu.tar.gz" \
-      | tar -C /usr/local/bin --strip-components=1 -xz --wildcards "*/hyperfine"
+    case "$TARGETARCH" in \
+      amd64) checksum=ae2beda2ac99c098427e4f755244552daf20e514422889cca6d44421e2d93c87 ;; \
+      arm64) checksum=f8244d1e17f8da23ee6b3ae2cdc04a6a185a450f6b74e09bff12e498038fcbc9 ;; \
+    esac; \
+    cd /tmp; \
+    archive="hyperfine-v${HYPERFINE_VERSION}-${GNU_ARCH}-unknown-linux-gnu.tar.gz"; \
+    curl -fsSLo "$archive" \
+      "https://github.com/sharkdp/hyperfine/releases/download/v${HYPERFINE_VERSION}/${archive}"; \
+    printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check; \
+    tar -C /usr/local/bin --strip-components=1 -xz -f "$archive" --wildcards "*/hyperfine"; \
+    rm "$archive"
