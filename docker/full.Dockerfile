@@ -18,11 +18,32 @@ case "${TARGETARCH}" in
 esac >> /etc/arch-env
 EOF
 
-# JupyterLab
-# Build the Rust kernel serially to keep peak compiler memory manageable.
 USER dev
+RUN rustup component add rust-src
+
+# Upstream publishes Linux AMD64 binaries only; releases compile ARM64 natively.
+# Install Evcxr before Python packages so changing them does not rebuild the Rust kernel.
+ARG EVCXR_VERSION=0.22.0
+RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked,uid=1000,gid=1000 \
+    set -eux; \
+    case "$TARGETARCH" in \
+      amd64) \
+        archive="evcxr_jupyter-v${EVCXR_VERSION}-x86_64-unknown-linux-gnu.tar.gz"; \
+        curl -fsSL --retry 5 --retry-all-errors --remove-on-error \
+          "https://github.com/evcxr/evcxr/releases/download/v${EVCXR_VERSION}/$archive" -o "/tmp/$archive"; \
+        printf '%s  %s\n' c4c9ffa198d79e2e21518061567f1661c452c44702a09fcb5123fdcaeda0af7a "/tmp/$archive" | sha256sum --check; \
+        tar -xz -C "$CARGO_HOME/bin" --strip-components=1 -f "/tmp/$archive" \
+          "evcxr_jupyter-v${EVCXR_VERSION}-x86_64-unknown-linux-gnu/evcxr_jupyter"; \
+        rm "/tmp/$archive" \
+        ;; \
+      arm64) \
+        cargo install --locked --jobs 1 evcxr_jupyter --version "$EVCXR_VERSION" \
+        ;; \
+      *) echo "Unsupported arch: $TARGETARCH" >&2; exit 1 ;; \
+    esac
+
+# JupyterLab
 RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
-    --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked,uid=1000,gid=1000 \
     uv tool install jupyterlab==4.6.6 \
       --with jupyter-server==2.21.1 \
       --with ipykernel==7.4.0 \
@@ -30,8 +51,6 @@ RUN --mount=type=cache,target=/cache/uv,sharing=locked,uid=1000,gid=1000 \
       --with kotlin-jupyter-kernel==0.19.0.944 \
   && /opt/uv-tools/jupyterlab/bin/python -m bash_kernel.install --sys-prefix \
   && /opt/uv-tools/jupyterlab/bin/python -c 'import json,pathlib,sys; p=pathlib.Path(sys.prefix)/"share/jupyter/kernels/kotlin/kernel.json"; data=json.loads(p.read_text()); data["argv"][0]=sys.executable; data["metadata"]["jar_path_detect_command"][0]=sys.executable; p.write_text(json.dumps(data, indent=2)+"\n")' \
-  && rustup component add rust-src \
-  && cargo install --locked --jobs 1 evcxr_jupyter --version 0.22.0 \
   && JUPYTER_PATH=/opt/uv-tools/jupyterlab/share/jupyter evcxr_jupyter --install
 
 USER root

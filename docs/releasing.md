@@ -27,18 +27,29 @@ git push origin v1.2.3
 The release workflow verifies that the tagged commit is reachable from
 `origin/main` before publishing. It also:
 
-- builds all three flavors once for `linux/amd64` and `linux/arm64`, with
-  BuildKit provenance and SBOM attestations;
-- pushes run-scoped `<flavor>-candidate-<run-id>-<attempt>` tags and records their
-  immutable index digests;
-- pulls each platform by digest, scans `full`, and runs the existing smoke suite
-  with `--no-build all`, including application authentication, kernels, and lifecycle;
-- promotes those same indexes to the release tags only after both platforms pass.
+- builds all three flavors on native AMD64 (`ubuntu-latest`) and ARM64
+  (`ubuntu-24.04-arm`) runners, with BuildKit provenance and SBOM attestations;
+- pushes run-scoped `<flavor>-candidate-<run-id>-<attempt>-<arch>` indexes;
+- pulls each platform by immutable digest, scans `full`, and runs the existing
+  `--no-build all` smoke suite, including authentication, all kernels, and lifecycle;
+- records digests only after validation succeeds, then combines the validated
+  indexes into `<flavor>-candidate-<run-id>-<attempt>` and promotes that index.
 
-AMD64 validation runs natively on `ubuntu-latest`; ARM64 builds and tests use
-QEMU. Emulation checks the ARM64 binaries and userspace, but does not establish
-native ARM hardware behavior or performance. The existing registry caches are
-reused; validation does not rebuild the toolchain layers.
+Compilation and runtime validation use no QEMU. Evcxr uses its checksum-verified
+upstream Linux AMD64 binary; upstream does not publish Linux ARM64 binaries, so
+ARM64 compiles the locked source natively. The Rust installation layer precedes
+Jupyter packages so Python-only updates do not recompile it.
+
+Each architecture imports and exports its own registry cache, avoiding concurrent
+writers replacing one another's cache. CI imports the AMD64 release cache.
+A new cache starts cold; subsequent releases reuse completed layers. BuildKit
+cache mounts retain downloads only on the same builder and are not exported with
+registry layer caches. Validation never rebuilds the toolchain layers.
+
+With both architecture jobs running concurrently, the critical path is
+preparation + the slower native build/scan/smoke job + publication. The job
+limits total 10 + 160 + 10 = 180 minutes on that path; this is not a workflow
+wall-clock deadline. Runner queues, serialized scheduling, and reruns add time.
 
 Trivy reports fixed Critical vulnerabilities without blocking promotion, as
 before. Scanner errors, failed database downloads, build failures, and smoke
@@ -62,9 +73,11 @@ full-1.2.3, full-1.2, full-1, full-latest, latest
 ```
 
 Release runs share one queue to prevent interleaved tag updates across versions.
-The queue does not sort by SemVer. Every rerun builds and validates a fresh
-candidate; rerunning an older stable tag can move shared aliases backward and
-replace its exact version tags if upstream build inputs have changed.
+The queue does not sort by SemVer. Rerunning native build jobs creates fresh
+candidates; retrying only publication reuses the recorded, validated digests.
+If their artifacts have expired, rerun the build jobs. Rerunning an older stable
+tag can move shared aliases backward; rebuilding it can also replace exact
+version tags if upstream build inputs have changed.
 
 ## Pre-releases
 
@@ -100,13 +113,14 @@ full-patch-<branch>-<short-sha>
 
 Patch images are for validation only. They do not update stable or latest tags.
 They include BuildKit provenance and an SBOM, while the branch CI smoke-tests
-the `code` flavor.
+the `code` flavor. Patch publishing still builds ARM64 through QEMU and can incur
+a slow cold Evcxr build.
 
 ## Candidate retention
 
-Candidate tags accumulate after both successful and failed runs. Successful
-candidates share a GHCR package version with release tags; deleting that
-version also removes the released artifact. Retain these versions.
+Candidate tags accumulate after both successful and failed runs. Assembled
+multi-architecture candidates share a GHCR package version with release tags;
+deleting that version also removes the released artifact. Retain these versions.
 
 For conservative manual cleanup, review candidate-only root index versions
 from completed runs older than 30 days and delete only versions whose non-empty
@@ -119,10 +133,10 @@ and attestation manifests. The workflow performs no registry deletion.
 - Workflows use `GITHUB_TOKEN` with `packages: read` for smoke cache imports and
   `packages: write` for publishing; no personal access token should be needed.
 - Build cache is published separately from release images:
-  `ghcr.io/jo-cube/workspace-cache`.
+  `ghcr.io/jo-cube/workspace-cache-amd64` and `workspace-cache-arm64`.
+  Patch-branch publishing continues to use `workspace-cache`.
 - Keep `workspace` public if the images should be anonymously pullable. The
-  `workspace-cache` package can stay private if you only need GitHub Actions to
-  read/write it.
+  cache packages can stay private if only GitHub Actions needs read/write access.
 - If a publish job fails with a permissions error, check the repository's
   Actions workflow permissions and package permissions in GitHub settings.
 - After the first successful publish, check the GHCR package visibility. GitHub
