@@ -42,6 +42,9 @@ Jupyter packages so Python-only updates do not recompile it.
 
 Each architecture imports and exports its own registry cache, avoiding concurrent
 writers replacing one another's cache. CI imports the AMD64 release cache.
+Registry cache-export failures are reported but do not fail the build; image
+exports and all validation/promotion steps remain mandatory. Invalid cache-export
+configuration can still fail the build.
 A new cache starts cold; subsequent releases reuse completed layers. BuildKit
 cache mounts retain downloads only on the same builder and are not exported with
 registry layer caches. Validation never rebuilds the toolchain layers.
